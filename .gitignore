@@ -3,7 +3,7 @@
 /.idea
 #/gradle
 /backup
-/src/test/resources/hibernatetest.properties
+#/src/test/resources/hibernatetest.properties
 /schedule_logs
 derby.log
 .DS_Store

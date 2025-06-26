@@ -178,6 +178,7 @@ dependencies {
     testImplementation 'com.jayway.jsonpath:json-path:2.2.0'
     testImplementation group: 'org.springframework.security', name: 'spring-security-test', version: '5.3.1.RELEASE'
     testImplementation group: 'org.hamcrest', name: 'hamcrest', version: '2.2'
+    testImplementation 'com.h2database:h2:1.4.200'
 
     //jwt
     implementation group: 'io.jsonwebtoken', name: 'jjwt', version: '0.9.0'
