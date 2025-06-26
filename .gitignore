@@ -8,4 +8,4 @@
 derby.log
 .DS_Store
 .env
-
+!gradle/wrapper/gradle-wrapper.jar
