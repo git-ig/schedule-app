@@ -1,5 +1,5 @@
 
-FROM tomcat:9-jdk11-temurin
+FROM eclipse-temurin:11-jre-alpine
 
 RUN rm -rf /usr/local/tomcat/webapps/ROOT
 
