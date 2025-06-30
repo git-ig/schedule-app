@@ -10,3 +10,5 @@ derby.log
 .env
 !gradle/wrapper/gradle-wrapper.jar
 **/*.war
+*.jpg
+files/
