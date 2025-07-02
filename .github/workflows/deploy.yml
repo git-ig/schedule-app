@@ -49,7 +49,7 @@ jobs:
         id: terraform_outputs
         working-directory: infra/terraform/gcp
         run: |
-          terraform output -raw ansible_inventory > ../ansible/inventory/gcp.ini
+          terraform output -raw ansible_inventory > ../../ansible/inventory/gcp.ini
           echo "::set-output name=backend_image::ghcr.io/${{ github.repository }}:${{ github.sha }}"
           echo "::set-output name=frontend_image::ghcr.io/${{ github.repository }}-frontend:${{ github.sha }}"
 
