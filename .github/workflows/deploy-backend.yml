@@ -45,6 +45,13 @@ jobs:
         working-directory: infra/terraform/gcp
         run: terraform init
 
+      - name: DEBUG – list TF outputs
+        working-directory: infra/terraform/gcp
+        run: |
+          terraform output || true
+          terraform workspace show || true
+          ls -al
+
       - name: Generate Ansible Inventory
         id: terraform_outputs
         working-directory: infra/terraform/gcp
