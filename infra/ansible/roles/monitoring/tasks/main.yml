@@ -1,0 +1,26 @@
+---
+# Tasks for monitoring deployment
+- name: Create monitoring directory
+  file:
+    path: /home/ig/monitoring
+    state: directory
+
+- name: Pull and run prometheus container
+  docker_container:
+    name: prometheus
+    image: prom/prometheus:v2.37.0
+    state: started
+    restart_policy: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - /home/ig/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+
+- name: Pull and run grafana container
+  docker_container:
+    name: grafana
+    image: grafana/grafana:8.5.2
+    state: started
+    restart_policy: always
+    ports:
+      - "3000:3000"

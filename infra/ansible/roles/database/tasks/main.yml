@@ -1,0 +1,18 @@
+---
+# Tasks for database deployment
+- name: Create database directory
+  file:
+    path: /home/ig/database
+    state: directory
+
+- name: Pull and run database container
+  docker_container:
+    name: database
+    image: postgres:13
+    state: started
+    restart_policy: always
+    environment:
+      POSTGRES_USER: "{{ db_user }}"
+      POSTGRES_PASSWORD: "{{ db_password }}"
+    volumes:
+      - /home/ig/database/data:/var/lib/postgresql/data

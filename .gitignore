@@ -12,3 +12,5 @@ derby.log
 **/*.war
 *.jpg
 files/
+*.tfvars
+infra/ansible/.vault_pass

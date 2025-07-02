@@ -1,0 +1,15 @@
+---
+# Tasks for frontend deployment
+- name: Create frontend directory
+  file:
+    path: /home/ig/frontend
+    state: directory
+
+- name: Pull and run frontend container
+  docker_container:
+    name: frontend
+    image: "ghcr.io/{{ github.repository }}-frontend:{{ github.sha }}"
+    state: started
+    restart_policy: always
+    ports:
+      - "80:80"

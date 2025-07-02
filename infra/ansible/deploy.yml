@@ -1,0 +1,27 @@
+---
+- name: Deploy application services
+  hosts: all
+  roles:
+    - common
+
+- name: Deploy backend
+  hosts: backend
+  roles:
+    - backend
+
+- name: Deploy frontend
+  hosts: frontend
+  roles:
+    - frontend
+
+- name: Deploy database
+  hosts: database
+  roles:
+    - role: database
+  vars_files:
+    - group_vars/database/vault.yml
+
+- name: Deploy monitoring
+  hosts: monitoring
+  roles:
+    - monitoring
