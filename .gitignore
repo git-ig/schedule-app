@@ -17,3 +17,4 @@ infra/ansible/.vault_pass
 infra/terraform/gcp/backend.conf
 .terraform
 infra/ansible/inventory/gcp.ini
+infra/ansible/inventory/gcp.ini
