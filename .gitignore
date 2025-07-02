@@ -14,4 +14,5 @@ derby.log
 files/
 *.tfvars
 infra/ansible/.vault_pass
+infra/terraform/gcp/backend.conf
 .terraform

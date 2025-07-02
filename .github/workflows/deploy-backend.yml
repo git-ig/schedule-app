@@ -41,16 +41,17 @@ jobs:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
         run: echo "$ANSIBLE_VAULT_PASSWORD" > infra/ansible/.vault_pass
 
-      - name: Initialize Terraform
-        working-directory: infra/terraform/gcp
-        run: terraform init
-
-      - name: DEBUG – list TF outputs
+      - name: Create Terraform backend config
+        env:
+          GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
         working-directory: infra/terraform/gcp
         run: |
-          terraform output || true
-          terraform workspace show || true
-          ls -al
+          echo "bucket = \"$GCS_BUCKET_NAME\"" > backend.conf
+          echo "prefix = \"terraform/state\"" >> backend.conf
+
+      - name: Initialize Terraform
+        working-directory: infra/terraform/gcp
+        run: terraform init -backend-config=backend.conf
 
       - name: Generate Ansible Inventory
         id: terraform_outputs
