@@ -1,12 +1,13 @@
 ---
 # Tasks for backend deployment
 - name: Create backend directory
-  file:
+  ansible.builtin.file:
     path: /home/ig/backend
     state: directory
+    mode: '0755'
 
 - name: Pull and run backend container
-  docker_container:
+  community.docker.docker_container:
     name: backend
     image: "{{ backend_image_url }}"
     state: started

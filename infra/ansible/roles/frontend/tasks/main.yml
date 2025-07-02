@@ -1,12 +1,13 @@
 ---
 # Tasks for frontend deployment
 - name: Create frontend directory
-  file:
+  ansible.builtin.file:
     path: /home/ig/frontend
     state: directory
+    mode: '0755'
 
 - name: Pull and run frontend container
-  docker_container:
+  community.docker.docker_container:
     name: frontend
     image: "ghcr.io/{{ github.repository }}-frontend:{{ github.sha }}"
     state: started

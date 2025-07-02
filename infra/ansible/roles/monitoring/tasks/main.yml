@@ -1,12 +1,13 @@
 ---
 # Tasks for monitoring deployment
 - name: Create monitoring directory
-  file:
+  ansible.builtin.file:
     path: /home/ig/monitoring
     state: directory
+    mode: '0755'
 
 - name: Pull and run prometheus container
-  docker_container:
+  community.docker.docker_container:
     name: prometheus
     image: prom/prometheus:v2.37.0
     state: started
@@ -17,7 +18,7 @@
       - /home/ig/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
 
 - name: Pull and run grafana container
-  docker_container:
+  community.docker.docker_container:
     name: grafana
     image: grafana/grafana:8.5.2
     state: started
