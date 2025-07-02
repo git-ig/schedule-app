@@ -1,0 +1,62 @@
+name: Deploy Backend
+
+on: 
+  workflow_run:
+    workflows: ["Build and Analyze"]
+    types:
+      - completed
+    branches:
+      - main
+      - dev
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Set up Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      - name: Configure SSH
+        env:
+          GCP_SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$GCP_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Configure Ansible Vault
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: echo "$ANSIBLE_VAULT_PASSWORD" > infra/ansible/.vault_pass
+
+      - name: Initialize Terraform
+        working-directory: infra/terraform/gcp
+        run: terraform init
+
+      - name: Generate Ansible Inventory
+        id: terraform_outputs
+        working-directory: infra/terraform/gcp
+        run: |
+          mkdir -p ../../ansible/inventory
+          terraform output -raw ansible_inventory > ../../ansible/inventory/gcp.ini
+          echo "::set-output name=backend_image::ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}"
+
+      - name: Run Backend Playbook
+        working-directory: infra/ansible
+        run: |
+          ansible-playbook deploy.yml --tags backend \
+            --vault-password-file .vault_pass \
+            --extra-vars "backend_image_url=${{ steps.terraform_outputs.outputs.backend_image }}"
+

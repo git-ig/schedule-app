@@ -1,8 +1,8 @@
-name: Continuous Deployment
+name: Deploy Frontend
 
-on: 
+on:
   workflow_run:
-    workflows: ["Build and Analyze", "Frontend CI"]
+    workflows: ["Frontend CI"]
     types:
       - completed
     branches:
@@ -10,7 +10,7 @@ on:
       - dev
 
 jobs:
-  deploy:
+  deploy-frontend:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
@@ -49,14 +49,14 @@ jobs:
         id: terraform_outputs
         working-directory: infra/terraform/gcp
         run: |
+          mkdir -p ../../ansible/inventory
           terraform output -raw ansible_inventory > ../../ansible/inventory/gcp.ini
-          echo "::set-output name=backend_image::ghcr.io/${{ github.repository }}:${{ github.sha }}"
-          echo "::set-output name=frontend_image::ghcr.io/${{ github.repository }}-frontend:${{ github.sha }}"
+          echo "::set-output name=frontend_image::ghcr.io/${{ github.repository }}-frontend:${{ github.event.workflow_run.head_sha }}"
 
-      - name: Run Ansible Playbook
+      - name: Run Frontend Playbook
         working-directory: infra/ansible
         run: |
-          ansible-playbook deploy.yml \
+          ansible-playbook deploy.yml --tags frontend \
             --vault-password-file .vault_pass \
-            --extra-vars "backend_image_url=${{ steps.terraform_outputs.outputs.backend_image }}" \
             --extra-vars "frontend_image_url=${{ steps.terraform_outputs.outputs.frontend_image }}"
+

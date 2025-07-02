@@ -8,11 +8,13 @@
   hosts: backend
   roles:
     - backend
+  tags: backend
 
 - name: Deploy frontend
   hosts: frontend
   roles:
     - frontend
+  tags: frontend
 
 - name: Deploy database
   hosts: database
