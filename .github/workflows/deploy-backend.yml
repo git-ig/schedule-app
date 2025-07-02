@@ -1,6 +1,6 @@
 name: Deploy Backend
 
-on: 
+on:
   workflow_run:
     workflows: ["Build and Analyze"]
     types:
@@ -12,8 +12,8 @@ on:
 jobs:
   deploy-backend:
     permissions:
-      contents: 'read'
-      id-token: 'write'
+      contents: "read"
+      id-token: "write"
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
@@ -32,23 +32,26 @@ jobs:
           sudo apt-get install -y ansible
 
       - name: Authenticate to Google Cloud
-        uses: 'google-github-actions/auth@v2'
+        uses: "google-github-actions/auth@v2"
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      - name: Configure SSH
+      - name: Setup SSH Agent for Ansible
         env:
           GCP_SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.ssh
           echo "$GCP_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
 
       - name: Configure Ansible Vault
         env:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: echo "$ANSIBLE_VAULT_PASSWORD" > infra/ansible/.vault_pass
+        run: echo -n "$ANSIBLE_VAULT_PASSWORD" > infra/ansible/.vault_pass
 
       - name: Create Terraform backend config
         env:
@@ -61,6 +64,20 @@ jobs:
       - name: Initialize Terraform
         working-directory: infra/terraform/gcp
         run: terraform init -backend-config=backend.conf
+
+      - name: Create terraform.tfvars file
+        working-directory: infra/terraform/gcp
+        run: |
+          echo 'project_id            = "${{ secrets.GCP_PROJECT_ID }}"'      > terraform.tfvars
+          echo 'region                = "${{ secrets.GCP_REGION }}"'          >> terraform.tfvars
+          echo 'zone                  = "${{ secrets.GCP_ZONE }}"'              >> terraform.tfvars
+          echo 'ssh_user              = "${{ secrets.GCP_SSH_USER }}"'          >> terraform.tfvars
+          echo 'ssh_public_key_path   = "/home/runner/.ssh/id_rsa.pub"'       >> terraform.tfvars
+          echo 'bucket_name           = "${{ secrets.GCS_BUCKET_NAME }}"'      >> terraform.tfvars
+
+      - name: Terraform Apply
+        working-directory: infra/terraform/gcp
+        run: terraform apply -auto-approve -var-file="terraform.tfvars"
 
       - name: Generate Ansible Inventory
         id: terraform_outputs
@@ -76,4 +93,3 @@ jobs:
           ansible-playbook deploy.yml --tags backend \
             --vault-password-file .vault_pass \
             --extra-vars "backend_image_url=${{ steps.terraform_outputs.outputs.backend_image }}"
-
