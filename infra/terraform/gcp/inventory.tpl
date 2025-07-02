@@ -25,4 +25,4 @@ database
 monitoring
 
 [private_instances:vars]
-ansible_ssh_common_args='-o ProxyCommand="ssh -W %h:%p -q ${ssh_user}@${bastion_public_ip}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+ansible_ssh_common_args='-o ProxyCommand=''ssh -W %h:%p -q ${ssh_user}@${bastion_public_ip}'' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
