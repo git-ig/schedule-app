@@ -5,7 +5,10 @@ terraform {
       version = "~> 4.0"
     }
   }
-  backend "gcs" {}
+  backend "gcs" {
+    bucket = var.bucket_name
+    prefix = "terraform/state"
+  }
 }
 
 provider "google" {
