@@ -79,12 +79,15 @@ jobs:
         working-directory: infra/terraform/gcp
         run: terraform apply -auto-approve -var-file="terraform.tfvars"
 
-      - name: Generate Ansible Inventory
+      - name: Generate and Debug Ansible Inventory
         id: terraform_outputs
         working-directory: infra/terraform/gcp
         run: |
           mkdir -p ../../ansible/inventory
           terraform output -raw ansible_inventory > ../../ansible/inventory/gcp.ini
+          echo "--- ANSIBLE INVENTORY CONTENT ---"
+          cat ../../ansible/inventory/gcp.ini
+          echo "---------------------------------"
           echo "::set-output name=backend_image::ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}"
 
       - name: Run Backend Playbook
