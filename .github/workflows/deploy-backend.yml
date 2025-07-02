@@ -34,9 +34,16 @@ jobs:
       - name: Install Ansible Lint
         run: pip install ansible-lint
 
+      - name: Configure Ansible Vault
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: echo -n "$ANSIBLE_VAULT_PASSWORD" > infra/ansible/.vault_pass
+
       - name: Run Ansible Lint
         working-directory: infra/ansible
         run: ansible-lint deploy.yml
+        env:
+          ANSIBLE_VAULT_PASSWORD_FILE: ./.vault_pass
 
       - name: Authenticate to Google Cloud
         uses: "google-github-actions/auth@v2"
