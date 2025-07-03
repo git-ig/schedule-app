@@ -55,49 +55,7 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      - name: Setup SSH Config and Agent
-        env:
-          GCP_SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
-          GCP_SSH_USER: ${{ secrets.GCP_SSH_USER }}
-        run: |
-          # --- SSH Agent Setup ---
-          mkdir -p ~/.ssh
-          echo "$GCP_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/id_rsa
-
-          # --- SSH Config Setup ---
-          cd infra/terraform/gcp
-          BASTION_IP=$(terraform output -raw bastion_public_ip)
-          cd ../../..
-
-          cat > ~/.ssh/config << EOF
-          Host bastion
-            HostName $BASTION_IP
-            User $GCP_SSH_USER
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-            ForwardAgent yes
-
-          Host 10.0.*.*
-            User $GCP_SSH_USER
-            ProxyJump bastion
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-          EOF
-
-          echo "--- SSH Config Created ---"
-          cat ~/.ssh/config
-          echo "--------------------------"
-          
-          echo "--- Testing Connection to Bastion ---"
-          ssh -o ConnectTimeout=30 bastion "echo 'SSH connection to bastion successful'"
-
-      - name: Configure Ansible Vault
-        env:
-          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: echo -n "$ANSIBLE_VAULT_PASSWORD" > infra/ansible/.vault_pass
+      ssh -o ConnectTimeout=30 bastion "echo 'SSH connection to bastion successful'"
 
       - name: Create Terraform backend config
         env:
@@ -124,6 +82,48 @@ jobs:
       - name: Terraform Apply
         working-directory: infra/terraform/gcp
         run: terraform apply -auto-approve -var-file="terraform.tfvars"
+
+      - name: Setup SSH Config and Agent
+        env:
+          GCP_SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          GCP_SSH_USER: ${{ secrets.GCP_SSH_USER }}
+        run: |
+          # --- SSH Agent Setup ---
+          mkdir -p ~/.ssh
+          echo "$GCP_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+
+          # --- SSH Config Setup ---
+          cd infra/terraform/gcp
+          BASTION_IP=$(terraform output -raw bastion_public_ip)
+          cd ../../..
+
+          cat > ~/.ssh/config << EOF
+          Host bastion
+            HostName $BASTION_IP
+            User $GCP_SSH_USER
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ForwardAgent yes
+
+          Host 10.0.*.*
+            User $GCP_SSH_USER
+            IdentityFile ~/.ssh/id_rsa
+            ProxyJump bastion
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
+
+          echo "--- SSH Config Created ---"
+          cat ~/.ssh/config
+          echo "--------------------------"
+          
+          echo "--- Testing Connection to Bastion ---"
+          ssh -o ConnectTimeout=30 bastion "echo 'SSH connection to bastion successful'"
 
       - name: Debug Terraform outputs
         working-directory: infra/terraform/gcp
