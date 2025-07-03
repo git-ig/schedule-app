@@ -55,37 +55,44 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      - name: Setup SSH Agent for Ansible
+      - name: Setup SSH Config and Agent
         env:
           GCP_SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          GCP_SSH_USER: ${{ secrets.GCP_SSH_USER }}
         run: |
-          # Создаем SSH директорию
+          # --- SSH Agent Setup ---
           mkdir -p ~/.ssh
-
-          # Создаем SSH ключ
           echo "$GCP_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-
-          # Генерируем публичный ключ
-          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
-
-          # Запускаем SSH agent и добавляем ключ
-          eval "$(ssh-agent -s)" && echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
-          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
+          eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
 
-          # Создаем SSH конфиг для bastion
+          # --- SSH Config Setup ---
+          cd infra/terraform/gcp
+          BASTION_IP=$(terraform output -raw bastion_public_ip)
+          cd ../../..
+
           cat > ~/.ssh/config << EOF
           Host bastion
-            HostName ${{ secrets.BASTION_PUBLIC_IP || 'BASTION_IP_PLACEHOLDER' }}
-            User ${{ secrets.GCP_SSH_USER }}
-            IdentityFile ~/.ssh/id_rsa
+            HostName $BASTION_IP
+            User $GCP_SSH_USER
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ForwardAgent yes
+
+          Host 10.0.*.*
+            User $GCP_SSH_USER
+            ProxyJump bastion
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
           EOF
 
-          # Проверяем SSH конфиг
+          echo "--- SSH Config Created ---"
           cat ~/.ssh/config
+          echo "--------------------------"
+          
+          echo "--- Testing Connection to Bastion ---"
+          ssh -o ConnectTimeout=30 bastion "echo 'SSH connection to bastion successful'"
 
       - name: Configure Ansible Vault
         env:
@@ -131,25 +138,11 @@ jobs:
           echo "=== Ansible Inventory Output ==="
           terraform output ansible_inventory || echo "ansible_inventory output not found"
 
-      - name: Test SSH connectivity to bastion
-        run: |
-          # Получаем IP bastion из terraform outputs
-          cd infra/terraform/gcp
-          BASTION_IP=$(terraform output -raw bastion_public_ip)
-          echo "Testing SSH connection to bastion: $BASTION_IP"
-
-          # Обновляем SSH конфиг с реальным IP
-          sed -i "s/BASTION_IP_PLACEHOLDER/$BASTION_IP/g" ~/.ssh/config
-
-          # Тестируем подключение, используя имя хоста из SSH-конфига
-          ssh -o ConnectTimeout=30 bastion "echo 'SSH connection to bastion successful'"
-
-      - name: Generate Ansible inventory
+      - name: Generate Ansible Inventory
         id: terraform_outputs
         working-directory: infra/terraform/gcp
         run: |
-          mkdir -p ../../ansible/inventory
-
+          # Получаем IPs
           BASTION_IP=$(terraform output -raw bastion_public_ip)
           BACKEND_IP=$(terraform output -raw backend_private_ip)
           FRONTEND_IP=$(terraform output -raw frontend_private_ip)
@@ -157,46 +150,31 @@ jobs:
           MONITORING_IP=$(terraform output -raw monitoring_private_ip)
           SSH_USER="${{ secrets.GCP_SSH_USER }}"
 
-          echo "=== Retrieved IPs ==="
-          echo "Bastion: $BASTION_IP"
-          echo "Backend: $BACKEND_IP"
-          echo "Frontend: $FRONTEND_IP"
-          echo "Database: $DATABASE_IP"
-          echo "Monitoring: $MONITORING_IP"
-          echo "SSH User: $SSH_USER"
-
+          # Создаем максимально простой инвентарь
           cat > ../../ansible/inventory/gcp.yml << EOF
           ---
           all:
             vars:
               ansible_user: $SSH_USER
-
             children:
               bastion_group:
                 hosts:
                   bastion_host:
                     ansible_host: $BASTION_IP
-                    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
               private_instances:
-                vars:
-                  ansible_ssh_common_args: "-o ForwardAgent=yes -o ProxyCommand='ssh -W %h:%p -q $SSH_USER@$BASTION_IP' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
                 children:
                   frontend_group:
                     hosts:
                       frontend_host:
                         ansible_host: $FRONTEND_IP
-
                   backend_group:
                     hosts:
                       backend_host:
                         ansible_host: $BACKEND_IP
-
                   database_group:
                     hosts:
                       database_host:
                         ansible_host: $DATABASE_IP
-
                   monitoring_group:
                     hosts:
                       monitoring_host:
@@ -206,15 +184,6 @@ jobs:
           echo "--- ANSIBLE INVENTORY CONTENT ---"
           cat ../../ansible/inventory/gcp.yml
           echo "---------------------------------"
-
-          if [ -s ../../ansible/inventory/gcp.yml ]; then
-            echo "Inventory file created successfully"
-            ansible-inventory -i ../../ansible/inventory/gcp.yml --list
-          else
-            echo "ERROR: Inventory file is empty"
-            exit 1
-          fi
-
           echo "backend_image=ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
 
       - name: Run Backend Playbook
