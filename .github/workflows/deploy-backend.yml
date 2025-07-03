@@ -98,9 +98,9 @@ jobs:
         working-directory: infra/terraform/gcp
         run: |
           mkdir -p ../../ansible/inventory
-          terraform output -raw ansible_inventory > ../../ansible/inventory/gcp.ini
+          terraform output -raw ansible_inventory > ../../ansible/inventory/gcp.yml
           echo "--- ANSIBLE INVENTORY CONTENT ---"
-          cat ../../ansible/inventory/gcp.ini
+          cat ../../ansible/inventory/gcp.yml
           echo "---------------------------------"
           echo "::set-output name=backend_image::ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}"
 
