@@ -1,16 +1,43 @@
 ---
-# Tasks for frontend deployment
 - name: Create frontend directory
   ansible.builtin.file:
-    path: /home/ig/frontend
+    path: "/home/{{ ansible_user }}/frontend"
     state: directory
-    mode: '0755'
+    mode: "0755"
 
-- name: Pull and run frontend container
+- name: Check if Docker is installed
+  ansible.builtin.command: docker --version
+  register: docker_check
+  failed_when: false
+  changed_when: false
+
+- name: Fail if Docker is not available
+  ansible.builtin.fail:
+    msg: "Docker is not installed. Make sure the common role runs first."
+  when: docker_check.rc != 0
+
+- name: Pull frontend image
+  community.docker.docker_image:
+    name: "{{ frontend_image_url }}"
+    source: pull
+    force_source: true
+  become: true
+
+- name: Stop existing frontend container
   community.docker.docker_container:
     name: frontend
-    image: "ghcr.io/{{ github.repository }}-frontend:{{ github.sha }}"
+    state: absent
+  become: true
+  failed_when: false
+
+- name: Run frontend container
+  community.docker.docker_container:
+    name: frontend
+    image: "{{ frontend_image_url }}"
     state: started
     restart_policy: always
     ports:
       - "80:80"
+    env:
+      NODE_ENV: production
+  become: true
