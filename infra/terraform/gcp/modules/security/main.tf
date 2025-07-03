@@ -20,3 +20,16 @@ resource "google_compute_firewall" "allow_internal" {
     var.private_subnet_cidr
   ]
 }
+
+resource "google_compute_firewall" "allow_http_to_bastion" {
+  name    = "allow-http-to-bastion"
+  network = var.network_name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["bastion"]
+}

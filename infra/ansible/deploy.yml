@@ -6,6 +6,15 @@
   tags:
     - always
 
+- name: Deploy reverse proxy
+  hosts: bastion_group
+  roles:
+    - reverse-proxy
+  vars:
+    frontend_private_ip: "{{ hostvars['frontend_host']['ansible_host'] }}"
+    backend_private_ip: "{{ hostvars['backend_host']['ansible_host'] }}"
+  tags: reverse-proxy
+
 - name: Deploy backend
   hosts: backend_group
   roles:
