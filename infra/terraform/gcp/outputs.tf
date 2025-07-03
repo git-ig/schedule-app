@@ -39,31 +39,31 @@ output "ansible_inventory" {
 	      -o UserKnownHostsFile=/dev/null
 
 	  children:
-	    bastion:
+	    bastion_group:
 	      hosts:
-	        bastion:
+	        bastion_host:
 	          ansible_host: ${module.compute.bastion_public_ip}
 
 	    private_instances:
 	      children:
-	        frontend:
+	        frontend_group:
 	          hosts:
-	            frontend:
+	            frontend_host:
 	              ansible_host: ${module.compute.frontend_private_ip}
 
-	        backend:
+	        backend_group:
 	          hosts:
-	            backend:
+	            backend_host:
 	              ansible_host: ${module.compute.backend_private_ip}
 
-	        database:
+	        database_group:
 	          hosts:
-	            database:
+	            database_host:
 	              ansible_host: ${module.compute.database_private_ip}
 
-	        monitoring:
+	        monitoring_group:
 	          hosts:
-	            monitoring:
+	            monitoring_host:
 	              ansible_host: ${module.compute.monitoring_private_ip}
 	YAML
 }

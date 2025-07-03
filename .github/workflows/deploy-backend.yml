@@ -143,31 +143,31 @@ jobs:
                 -o UserKnownHostsFile=/dev/null
 
             children:
-              bastion:
+              bastion_group:
                 hosts:
-                  bastion:
+                  bastion_host:
                     ansible_host: $BASTION_IP
 
               private_instances:
                 children:
-                  frontend:
+                  frontend_group:
                     hosts:
-                      frontend:
+                      frontend_host:
                         ansible_host: $FRONTEND_IP
 
-                  backend:
+                  backend_group:
                     hosts:
-                      backend:
+                      backend_host:
                         ansible_host: $BACKEND_IP
 
-                  database:
+                  database_group:
                     hosts:
-                      database:
+                      database_host:
                         ansible_host: $DATABASE_IP
 
-                  monitoring:
+                  monitoring_group:
                     hosts:
-                      monitoring:
+                      monitoring_host:
                         ansible_host: $MONITORING_IP
           EOF
 
@@ -189,8 +189,10 @@ jobs:
         working-directory: infra/ansible
         run: |
           # Проверяем, что inventory содержит хосты
-          if ! ansible-inventory -i ./inventory/gcp.yml --list | jq -e '.backend.hosts // empty' > /dev/null; then
+          if ! ansible-inventory -i ./inventory/gcp.yml --list | jq -e '.backend_group.hosts // empty' > /dev/null; then
             echo "ERROR: No backend hosts found in inventory"
+            echo "Available groups:"
+            ansible-inventory -i ./inventory/gcp.yml --list | jq -r 'keys[]'
             exit 1
           fi
 

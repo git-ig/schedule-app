@@ -5,25 +5,27 @@
     - common
 
 - name: Deploy backend
-  hosts: backend
+  hosts: backend_group
   roles:
     - backend
   tags: backend
 
 - name: Deploy frontend
-  hosts: frontend
+  hosts: frontend_group
   roles:
     - frontend
   tags: frontend
 
 - name: Deploy database
-  hosts: database
+  hosts: database_group
   roles:
     - role: database
   vars_files:
     - group_vars/database/vault.yml
+  tags: database
 
 - name: Deploy monitoring
-  hosts: monitoring
+  hosts: monitoring_group
   roles:
     - monitoring
+  tags: monitoring
