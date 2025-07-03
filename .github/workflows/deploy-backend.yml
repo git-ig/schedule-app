@@ -31,6 +31,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ansible
 
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y ansible jq
+
       - name: Install Ansible Lint
         run: pip install ansible-lint
 
@@ -98,16 +101,16 @@ jobs:
         working-directory: infra/terraform/gcp
         run: |
           mkdir -p ../../ansible/inventory
-          terraform output -raw ansible_inventory \
-            | tail -n +2 \
-            > ../../ansible/inventory/gcp.yml
+          terraform output -json ansible_inventory \
+          | jq -r '.value' \
+          > ../../ansible/inventory/gcp.yml
 
           echo "--- ANSIBLE INVENTORY CONTENT ---"
           cat ../../ansible/inventory/gcp.yml
           echo "---------------------------------"
 
           ansible-inventory -i ../../ansible/inventory/gcp.yml --list
-          echo "::set-output name=backend_image::ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}"
+          echo "backend_image=ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
 
       - name: Run Backend Playbook
         working-directory: infra/ansible
