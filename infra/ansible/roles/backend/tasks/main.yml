@@ -2,22 +2,22 @@
 # Tasks for backend deployment
 - name: Create backend directory
   ansible.builtin.file:
-    path: "/home/{{ ansible_user }}/backend" # Используем переменную
+    path: "/home/{{ ansible_user }}/backend"
     state: directory
     mode: "0755"
 
 - name: Check if Docker is installed
-  command: docker --version
+  ansible.builtin.command: docker --version
   register: docker_check
   failed_when: false
   changed_when: false
 
 - name: Debug Docker status
-  debug:
+  ansible.builtin.debug:
     msg: "Docker check result: {{ docker_check.rc }}"
 
 - name: Fail if Docker is not available
-  fail:
+  ansible.builtin.fail:
     msg: "Docker is not installed. Make sure the common role runs first."
   when: docker_check.rc != 0
 
@@ -25,7 +25,7 @@
   community.docker.docker_image:
     name: "{{ backend_image_url }}"
     source: pull
-    force_source: yes
+    force_source: true
   become: true
 
 - name: Stop existing backend container
@@ -33,7 +33,7 @@
     name: backend
     state: absent
   become: true
-  ignore_errors: true
+  failed_when: false
 
 - name: Run backend container
   community.docker.docker_container:
