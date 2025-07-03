@@ -44,7 +44,7 @@ output "ansible_inventory" {
     [all:vars]
     ansible_user=${var.ssh_user}
     ansible_ssh_private_key_file=~/.ssh/id_rsa
-    ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+    ansible_ssh_common_args=-o\ StrictHostKeyChecking=no\ -o\ UserKnownHostsFile=/dev/null
 
     [private_instances:children]
     frontend
@@ -53,7 +53,7 @@ output "ansible_inventory" {
     monitoring
 
     [private_instances:vars]
-    ansible_ssh_common_args='-o ProxyCommand="ssh -W %h:%p -q ${var.ssh_user}@${module.compute.bastion_public_ip}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+    ansible_ssh_common_args=-o\ ProxyCommand=\"ssh\ -W\ %h:%p\ -q\ ${var.ssh_user}@${module.compute.bastion_public_ip}\"\ -o\ StrictHostKeyChecking=no\ -o\ UserKnownHostsFile=/dev/null
   EOT
   sensitive   = true
 }
