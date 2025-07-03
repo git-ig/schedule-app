@@ -28,41 +28,42 @@ output "ansible_inventory" {
   sensitive   = true
 
   value = <<-YAML
-all:
-  vars:
-    ansible_user: ${var.ssh_user}
-    ansible_ssh_private_key_file: "~/.ssh/id_rsa"
-    ansible_ssh_common_args: |
-      -o ProxyCommand="ssh -W %h:%p -q ${var.ssh_user}@${module.compute.bastion_public_ip}"
-      -o StrictHostKeyChecking=no
-      -o UserKnownHostsFile=/dev/null
+	---
+	all:
+	  vars:
+	    ansible_user: ${var.ssh_user}
+	    ansible_ssh_private_key_file: "~/.ssh/id_rsa"
+	    ansible_ssh_common_args: |
+	      -o ProxyCommand="ssh -W %h:%p -q ${var.ssh_user}@${module.compute.bastion_public_ip}"
+	      -o StrictHostKeyChecking=no
+	      -o UserKnownHostsFile=/dev/null
 
-  children:
-    bastion:
-      hosts:
-        bastion:
-          ansible_host: ${module.compute.bastion_public_ip}
+	  children:
+	    bastion:
+	      hosts:
+	        bastion:
+	          ansible_host: ${module.compute.bastion_public_ip}
 
-    private_instances:
-      children:
-        frontend:
-          hosts:
-            frontend:
-              ansible_host: ${module.compute.frontend_private_ip}
+	    private_instances:
+	      children:
+	        frontend:
+	          hosts:
+	            frontend:
+	              ansible_host: ${module.compute.frontend_private_ip}
 
-        backend:
-          hosts:
-            backend:
-              ansible_host: ${module.compute.backend_private_ip}
+	        backend:
+	          hosts:
+	            backend:
+	              ansible_host: ${module.compute.backend_private_ip}
 
-        database:
-          hosts:
-            database:
-              ansible_host: ${module.compute.database_private_ip}
+	        database:
+	          hosts:
+	            database:
+	              ansible_host: ${module.compute.database_private_ip}
 
-        monitoring:
-          hosts:
-            monitoring:
-              ansible_host: ${module.compute.monitoring_private_ip}
-  YAML
+	        monitoring:
+	          hosts:
+	            monitoring:
+	              ansible_host: ${module.compute.monitoring_private_ip}
+	YAML
 }
