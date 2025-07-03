@@ -25,6 +25,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.0
+          terraform_wrapper: false
 
       - name: Set up Ansible
         run: |
@@ -96,31 +97,53 @@ jobs:
         working-directory: infra/terraform/gcp
         run: terraform apply -auto-approve -var-file="terraform.tfvars"
 
+      - name: Debug Terraform outputs
+        working-directory: infra/terraform/gcp
+        run: |
+          echo "=== Terraform State ==="
+          /usr/bin/terraform show -json | jq '.values.outputs // {}'
+
+          echo "=== Available Outputs ==="
+          /usr/bin/terraform output
+
+          echo "=== Ansible Inventory Output ==="
+          /usr/bin/terraform output ansible_inventory || echo "ansible_inventory output not found"
+
       - name: Generate Ansible inventory
+        id: terraform_outputs
         working-directory: infra/terraform/gcp
         run: |
           mkdir -p ../../ansible/inventory
-          # 1) сбросим wrapper
-          unset TERRAFORM_CLI_PATH
 
-          # 2) или вместо этого можно явно вызвать системный terraform:
-          # /usr/bin/terraform output -json ansible_inventory | jq -r '.value' > ../../ansible/inventory/gcp.yml
-
-          terraform output -json ansible_inventory \
-            | jq -r '.value' \
-            > ../../ansible/inventory/gcp.yml
+          # Используем системный terraform напрямую
+          /usr/bin/terraform output -json ansible_inventory | jq -r '.value' > ../../ansible/inventory/gcp.yml
 
           echo "--- ANSIBLE INVENTORY CONTENT ---"
           cat ../../ansible/inventory/gcp.yml
           echo "---------------------------------"
 
-          ansible-inventory -i ../../ansible/inventory/gcp.yml --list
+          # Проверяем содержимое инвентаря
+          if [ -s ../../ansible/inventory/gcp.yml ]; then
+            echo "Inventory file created successfully"
+            ansible-inventory -i ../../ansible/inventory/gcp.yml --list
+          else
+            echo "ERROR: Inventory file is empty"
+            exit 1
+          fi
 
           echo "backend_image=ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
 
       - name: Run Backend Playbook
         working-directory: infra/ansible
         run: |
+          # Проверяем, что inventory содержит хосты
+          if ! ansible-inventory -i ./inventory/gcp.yml --list | jq -e '.backend.hosts // empty' > /dev/null; then
+            echo "ERROR: No backend hosts found in inventory"
+            exit 1
+          fi
+
+          # Запускаем playbook
           ansible-playbook deploy.yml --tags backend \
             --vault-password-file .vault_pass \
-            --extra-vars "backend_image_url=${{ steps.terraform_outputs.outputs.backend_image }}"
+            --extra-vars "backend_image_url=${{ steps.terraform_outputs.outputs.backend_image }}" \
+            -vv
