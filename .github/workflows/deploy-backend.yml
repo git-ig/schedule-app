@@ -141,8 +141,8 @@ jobs:
           # Обновляем SSH конфиг с реальным IP
           sed -i "s/BASTION_IP_PLACEHOLDER/$BASTION_IP/g" ~/.ssh/config
 
-          # Тестируем подключение
-          ssh -o ConnectTimeout=30 -o BatchMode=yes ${{ secrets.GCP_SSH_USER }}@$BASTION_IP "echo 'SSH connection to bastion successful'"
+          # Тестируем подключение, используя имя хоста из SSH-конфига
+          ssh -o ConnectTimeout=30 bastion "echo 'SSH connection to bastion successful'"
 
       - name: Generate Ansible inventory
         id: terraform_outputs
