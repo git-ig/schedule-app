@@ -70,6 +70,10 @@ jobs:
         working-directory: infra/terraform/gcp
         run: terraform init -backend-config=backend.conf
 
+      - name: Terraform Apply
+        working-directory: infra/terraform/gcp
+        run: terraform apply -auto-approve -var-file="terraform.tfvars"
+
       - name: Setup SSH Agent and Config
         env:
           GCP_SSH_USER: ${{ secrets.GCP_SSH_USER }}
