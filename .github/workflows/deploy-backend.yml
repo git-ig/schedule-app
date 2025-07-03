@@ -96,22 +96,26 @@ jobs:
         working-directory: infra/terraform/gcp
         run: terraform apply -auto-approve -var-file="terraform.tfvars"
 
-      - name: Generate and Debug Ansible Inventory
-        id: terraform_outputs
+      - name: Generate Ansible inventory
         working-directory: infra/terraform/gcp
-        env:
-          TERRAFORM_CLI_PATH: ""
         run: |
           mkdir -p ../../ansible/inventory
+          # 1) сбросим wrapper
+          unset TERRAFORM_CLI_PATH
+
+          # 2) или вместо этого можно явно вызвать системный terraform:
+          # /usr/bin/terraform output -json ansible_inventory | jq -r '.value' > ../../ansible/inventory/gcp.yml
+
           terraform output -json ansible_inventory \
-          | jq -r '.value' \
-          > ../../ansible/inventory/gcp.yml
+            | jq -r '.value' \
+            > ../../ansible/inventory/gcp.yml
 
           echo "--- ANSIBLE INVENTORY CONTENT ---"
           cat ../../ansible/inventory/gcp.yml
           echo "---------------------------------"
 
           ansible-inventory -i ../../ansible/inventory/gcp.yml --list
+
           echo "backend_image=ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
 
       - name: Run Backend Playbook
