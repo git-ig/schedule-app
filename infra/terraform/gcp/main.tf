@@ -40,5 +40,5 @@ module "compute" {
   network_name          = module.network.network_name
   vm_image              = var.vm_image
   ssh_user              = var.ssh_user
-  ssh_public_key_path   = var.ssh_public_key_path
+  ssh_public_key_content   = var.ssh_public_key_content
 }

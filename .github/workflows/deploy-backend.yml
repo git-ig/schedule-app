@@ -67,20 +67,6 @@ jobs:
         working-directory: infra/terraform/gcp
         run: terraform init -backend-config=backend.conf
 
-      - name: Create terraform.tfvars file
-        working-directory: infra/terraform/gcp
-        run: |
-          echo 'project_id            = "${{ secrets.GCP_PROJECT_ID }}"'      > terraform.tfvars
-          echo 'region                = "${{ secrets.GCP_REGION }}"'          >> terraform.tfvars
-          echo 'zone                  = "${{ secrets.GCP_ZONE }}"'              >> terraform.tfvars
-          echo 'ssh_user              = "${{ secrets.GCP_SSH_USER }}"'          >> terraform.tfvars
-          echo 'ssh_public_key_path   = "/home/runner/.ssh/id_rsa.pub"'       >> terraform.tfvars
-          echo 'bucket_name           = "${{ secrets.GCS_BUCKET_NAME }}"'      >> terraform.tfvars
-
-      - name: Terraform Apply
-        working-directory: infra/terraform/gcp
-        run: terraform apply -auto-approve -var-file="terraform.tfvars"
-
       - name: Generate SSH Key and Create tfvars
         id: ssh_and_tfvars
         run: |
@@ -88,9 +74,6 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
           PUB_KEY_CONTENT=$(cat ~/.ssh/id_rsa.pub)
-          echo "PUB_KEY_CONTENT<<EOF" >> $GITHUB_ENV
-          echo "$PUB_KEY_CONTENT" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
           
           # --- Create terraform.tfvars ---
           cat > infra/terraform/gcp/terraform.tfvars << EOF
