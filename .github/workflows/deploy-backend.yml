@@ -98,7 +98,9 @@ jobs:
         working-directory: infra/terraform/gcp
         run: |
           mkdir -p ../../ansible/inventory
-          terraform output -raw ansible_inventory > ../../ansible/inventory/gcp.yml
+          terraform output -raw ansible_inventory \
+            | tail -n +2 \
+            > ../../ansible/inventory/gcp.yml
 
           echo "--- ANSIBLE INVENTORY CONTENT ---"
           cat ../../ansible/inventory/gcp.yml
