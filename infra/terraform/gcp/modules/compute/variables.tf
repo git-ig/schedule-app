@@ -33,7 +33,8 @@ variable "ssh_user" {
   type        = string
 }
 
-variable "ssh_public_key_path" {
-  description = "The path to the public SSH key."
+variable "ssh_public_key_content" {
+  description = "The content of the public SSH key."
   type        = string
+  sensitive   = true
 }

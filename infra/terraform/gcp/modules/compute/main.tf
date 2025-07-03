@@ -17,7 +17,7 @@ resource "google_compute_instance" "bastion" {
   }
 
   metadata = {
-    ssh-keys = "${var.ssh_user}:${file(var.ssh_public_key_path)}"
+    ssh-keys = "${var.ssh_user}:${var.ssh_public_key_content}"
   }
 
   network_interface {
@@ -43,7 +43,7 @@ resource "google_compute_instance" "frontend" {
   }
 
   metadata = {
-    ssh-keys = "${var.ssh_user}:${file(var.ssh_public_key_path)}"
+    ssh-keys = "${var.ssh_user}:${var.ssh_public_key_content}"
   }
 
   network_interface {
@@ -66,7 +66,7 @@ resource "google_compute_instance" "backend" {
   }
 
   metadata = {
-    ssh-keys = "${var.ssh_user}:${file(var.ssh_public_key_path)}"
+    ssh-keys = "${var.ssh_user}:${var.ssh_public_key_content}"
   }
 
   network_interface {
@@ -89,7 +89,7 @@ resource "google_compute_instance" "database" {
   }
 
   metadata = {
-    ssh-keys = "${var.ssh_user}:${file(var.ssh_public_key_path)}"
+    ssh-keys = "${var.ssh_user}:${var.ssh_public_key_content}"
   }
 
   network_interface {
@@ -112,7 +112,7 @@ resource "google_compute_instance" "monitoring" {
   }
 
   metadata = {
-    ssh-keys = "${var.ssh_user}:${file(var.ssh_public_key_path)}"
+    ssh-keys = "${var.ssh_user}:${var.ssh_public_key_content}"
   }
 
   network_interface {

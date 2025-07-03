@@ -81,16 +81,39 @@ jobs:
         working-directory: infra/terraform/gcp
         run: terraform apply -auto-approve -var-file="terraform.tfvars"
 
-      - name: Setup SSH Config and Agent
+      - name: Generate SSH Key and Create tfvars
+        id: ssh_and_tfvars
+        run: |
+          # --- SSH Key Generation ---
+          mkdir -p ~/.ssh
+          ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+          PUB_KEY_CONTENT=$(cat ~/.ssh/id_rsa.pub)
+          echo "PUB_KEY_CONTENT<<EOF" >> $GITHUB_ENV
+          echo "$PUB_KEY_CONTENT" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          
+          # --- Create terraform.tfvars ---
+          cat > infra/terraform/gcp/terraform.tfvars << EOF
+          project_id               = "${{ secrets.GCP_PROJECT_ID }}"
+          region                   = "${{ secrets.GCP_REGION }}"
+          zone                     = "${{ secrets.GCP_ZONE }}"
+          ssh_user                 = "${{ secrets.GCP_SSH_USER }}"
+          ssh_public_key_content   = "$PUB_KEY_CONTENT"
+          bucket_name              = "${{ secrets.GCS_BUCKET_NAME }}"
+          EOF
+          
+          echo "--- tfvars created ---"
+          cat infra/terraform/gcp/terraform.tfvars
+
+      - name: Terraform Apply
+        working-directory: infra/terraform/gcp
+        run: terraform apply -auto-approve -var-file="terraform.tfvars"
+
+      - name: Setup SSH Agent and Config
         env:
-          GCP_SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
           GCP_SSH_USER: ${{ secrets.GCP_SSH_USER }}
         run: |
           # --- SSH Agent Setup ---
-          mkdir -p ~/.ssh
-          echo "$GCP_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
 
@@ -122,19 +145,6 @@ jobs:
           
           echo "--- Testing Connection to Bastion ---"
           ssh -o ConnectTimeout=30 bastion "echo 'SSH connection to bastion successful'"
-
-      - name: Debug Terraform outputs
-        working-directory: infra/terraform/gcp
-        run: |
-          echo "=== Terraform Location ==="
-          which terraform
-          terraform version
-
-          echo "=== Available Outputs ==="
-          terraform output
-
-          echo "=== Ansible Inventory Output ==="
-          terraform output ansible_inventory || echo "ansible_inventory output not found"
 
       - name: Generate Ansible Inventory
         id: terraform_outputs
