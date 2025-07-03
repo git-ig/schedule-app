@@ -233,9 +233,9 @@ jobs:
           echo "=== Testing Backend Connection ==="
           ansible backend_group -i ./inventory/gcp.yml -m ping -vv
 
-          # Запускаем playbook только для backend
+          # Запускаем playbook БЕЗ --tags, но с --limit (это позволит выполнить роль common)
           echo "=== Running Backend Playbook ==="
-          ansible-playbook deploy.yml --tags backend \
+          ansible-playbook deploy.yml \
             --vault-password-file .vault_pass \
             --extra-vars "backend_image_url=${{ steps.terraform_outputs.outputs.backend_image }}" \
             --limit backend_group \

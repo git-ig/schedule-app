@@ -3,10 +3,13 @@
   hosts: all
   roles:
     - common
+  tags:
+    - always
 
 - name: Deploy backend
   hosts: backend_group
   roles:
+    - common
     - backend
   tags: backend
 
