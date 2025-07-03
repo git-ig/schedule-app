@@ -100,14 +100,15 @@ jobs:
       - name: Debug Terraform outputs
         working-directory: infra/terraform/gcp
         run: |
-          echo "=== Terraform State ==="
-          /usr/bin/terraform show -json | jq '.values.outputs // {}'
+          echo "=== Terraform Location ==="
+          which terraform
+          terraform version
 
           echo "=== Available Outputs ==="
-          /usr/bin/terraform output
+          terraform output
 
           echo "=== Ansible Inventory Output ==="
-          /usr/bin/terraform output ansible_inventory || echo "ansible_inventory output not found"
+          terraform output ansible_inventory || echo "ansible_inventory output not found"
 
       - name: Generate Ansible inventory
         id: terraform_outputs
@@ -115,14 +116,12 @@ jobs:
         run: |
           mkdir -p ../../ansible/inventory
 
-          # Используем системный terraform напрямую
-          /usr/bin/terraform output -json ansible_inventory | jq -r '.value' > ../../ansible/inventory/gcp.yml
+          terraform output -json ansible_inventory | jq -r '.value' > ../../ansible/inventory/gcp.yml
 
           echo "--- ANSIBLE INVENTORY CONTENT ---"
           cat ../../ansible/inventory/gcp.yml
           echo "---------------------------------"
 
-          # Проверяем содержимое инвентаря
           if [ -s ../../ansible/inventory/gcp.yml ]; then
             echo "Inventory file created successfully"
             ansible-inventory -i ../../ansible/inventory/gcp.yml --list
