@@ -59,12 +59,33 @@ jobs:
         env:
           GCP_SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
         run: |
+          # Создаем SSH директорию
           mkdir -p ~/.ssh
+
+          # Создаем SSH ключ
           echo "$GCP_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+
+          # Генерируем публичный ключ
           ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
-          eval "$(ssh-agent -s)"
+
+          # Запускаем SSH agent и добавляем ключ
+          eval "$(ssh-agent -s)" && echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
           ssh-add ~/.ssh/id_rsa
+
+          # Создаем SSH конфиг для bastion
+          cat > ~/.ssh/config << EOF
+          Host bastion
+            HostName ${{ secrets.BASTION_PUBLIC_IP || 'BASTION_IP_PLACEHOLDER' }}
+            User ${{ secrets.GCP_SSH_USER }}
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
+
+          # Проверяем SSH конфиг
+          cat ~/.ssh/config
 
       - name: Configure Ansible Vault
         env:
@@ -110,6 +131,19 @@ jobs:
           echo "=== Ansible Inventory Output ==="
           terraform output ansible_inventory || echo "ansible_inventory output not found"
 
+      - name: Test SSH connectivity to bastion
+        run: |
+          # Получаем IP bastion из terraform outputs
+          cd infra/terraform/gcp
+          BASTION_IP=$(terraform output -raw bastion_public_ip)
+          echo "Testing SSH connection to bastion: $BASTION_IP"
+
+          # Обновляем SSH конфиг с реальным IP
+          sed -i "s/BASTION_IP_PLACEHOLDER/$BASTION_IP/g" ~/.ssh/config
+
+          # Тестируем подключение
+          ssh -o ConnectTimeout=30 -o BatchMode=yes ${{ secrets.GCP_SSH_USER }}@$BASTION_IP "echo 'SSH connection to bastion successful'"
+
       - name: Generate Ansible inventory
         id: terraform_outputs
         working-directory: infra/terraform/gcp
@@ -137,18 +171,18 @@ jobs:
             vars:
               ansible_user: $SSH_USER
               ansible_ssh_private_key_file: "~/.ssh/id_rsa"
-              ansible_ssh_common_args: |
-                -o ProxyCommand="ssh -W %h:%p -q $SSH_USER@$BASTION_IP"
-                -o StrictHostKeyChecking=no
-                -o UserKnownHostsFile=/dev/null
+              ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
             children:
               bastion_group:
                 hosts:
                   bastion_host:
                     ansible_host: $BASTION_IP
+                    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
               private_instances:
+                vars:
+                  ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand='ssh -W %h:%p -q $SSH_USER@$BASTION_IP'"
                 children:
                   frontend_group:
                     hosts:
@@ -188,7 +222,12 @@ jobs:
       - name: Run Backend Playbook
         working-directory: infra/ansible
         run: |
-          # Проверяем, что inventory содержит хосты
+          # Проверяем SSH agent
+          echo "=== SSH Agent Status ==="
+          ssh-add -l || echo "No SSH keys loaded"
+
+          # Проверяем inventory
+          echo "=== Inventory Check ==="
           if ! ansible-inventory -i ./inventory/gcp.yml --list | jq -e '.backend_group.hosts // empty' > /dev/null; then
             echo "ERROR: No backend hosts found in inventory"
             echo "Available groups:"
@@ -196,8 +235,14 @@ jobs:
             exit 1
           fi
 
-          # Запускаем playbook
+          # Тестируем подключение только к backend
+          echo "=== Testing Backend Connection ==="
+          ansible backend_group -i ./inventory/gcp.yml -m ping -vv || echo "Backend connection test failed"
+
+          # Запускаем playbook только для backend
+          echo "=== Running Backend Playbook ==="
           ansible-playbook deploy.yml --tags backend \
             --vault-password-file .vault_pass \
             --extra-vars "backend_image_url=${{ steps.terraform_outputs.outputs.backend_image }}" \
+            --limit backend_group \
             -vv
