@@ -207,8 +207,12 @@ jobs:
       - name: Run Backend Playbook
         working-directory: infra/ansible
         env:
+          ANSIBLE_REMOTE_USER: ${{ secrets.GCP_SSH_USER }}
           ANSIBLE_HOST_KEY_CHECKING: False
         run: |
+          # Устанавливаем Docker коллекцию
+          ansible-galaxy collection install community.docker
+
           # Настраиваем SSH Agent заново
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
