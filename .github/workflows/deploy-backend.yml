@@ -99,6 +99,8 @@ jobs:
       - name: Generate and Debug Ansible Inventory
         id: terraform_outputs
         working-directory: infra/terraform/gcp
+        env:
+          TERRAFORM_CLI_PATH: ""
         run: |
           mkdir -p ../../ansible/inventory
           terraform output -json ansible_inventory \
