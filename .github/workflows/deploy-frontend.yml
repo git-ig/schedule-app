@@ -25,6 +25,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.0
+          terraform_wrapper: false
 
       - name: Set up Ansible
         run: |
@@ -37,13 +38,50 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      - name: Configure SSH
-        env:
-          GCP_SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+      - name: Generate SSH Key and Create tfvars
         run: |
+          # Генерируем SSH ключ
           mkdir -p ~/.ssh
-          echo "$GCP_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+          PUB_KEY_CONTENT=$(cat ~/.ssh/id_rsa.pub)
+
+          # Создаем terraform.tfvars
+          cat > infra/terraform/gcp/terraform.tfvars << EOF
+          project_id               = "${{ secrets.GCP_PROJECT_ID }}"
+          region                   = "${{ secrets.GCP_REGION }}"
+          zone                     = "${{ secrets.GCP_ZONE }}"
+          ssh_user                 = "${{ secrets.GCP_SSH_USER }}"
+          ssh_public_key_content   = "$PUB_KEY_CONTENT"
+          bucket_name              = "${{ secrets.GCS_BUCKET_NAME }}"
+          EOF
+
+      - name: Setup SSH Agent and Config
+        env:
+          GCP_SSH_USER: ${{ secrets.GCP_SSH_USER }}
+        run: |
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+
+          cd infra/terraform/gcp
+          BASTION_IP=$(terraform output -raw bastion_public_ip)
+          cd ../../..
+
+          cat > ~/.ssh/config << EOF
+          Host bastion
+            HostName $BASTION_IP
+            User $GCP_SSH_USER
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ForwardAgent yes
+
+          Host 10.0.*.*
+            User $GCP_SSH_USER
+            IdentityFile ~/.ssh/id_rsa
+            ProxyJump bastion
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
 
       - name: Configure Ansible Vault
         env:
@@ -66,14 +104,60 @@ jobs:
         id: terraform_outputs
         working-directory: infra/terraform/gcp
         run: |
+          BASTION_IP=$(terraform output -raw bastion_public_ip)
+          FRONTEND_IP=$(terraform output -raw frontend_private_ip)
+          BACKEND_IP=$(terraform output -raw backend_private_ip)
+          DATABASE_IP=$(terraform output -raw database_private_ip)
+          MONITORING_IP=$(terraform output -raw monitoring_private_ip)
+          SSH_USER="${{ secrets.GCP_SSH_USER }}"
+
           mkdir -p ../../ansible/inventory
-          terraform output -raw ansible_inventory > ../../ansible/inventory/gcp.yml
+
+          cat > ../../ansible/inventory/gcp.yml << EOF
+          ---
+          all:
+            vars:
+              ansible_user: $SSH_USER
+              ansible_ssh_private_key_file: ~/.ssh/id_rsa
+              ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+            children:
+              bastion_group:
+                hosts:
+                  bastion_host:
+                    ansible_host: $BASTION_IP
+              private_instances:
+                vars:
+                  ansible_ssh_common_args: '-o ProxyCommand="ssh -W %h:%p -q $SSH_USER@$BASTION_IP -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+                children:
+                  frontend_group:
+                    hosts:
+                      frontend_host:
+                        ansible_host: $FRONTEND_IP
+                  backend_group:
+                    hosts:
+                      backend_host:
+                        ansible_host: $BACKEND_IP
+                  database_group:
+                    hosts:
+                      database_host:
+                        ansible_host: $DATABASE_IP
+                  monitoring_group:
+                    hosts:
+                      monitoring_host:
+                        ansible_host: $MONITORING_IP
+          EOF
+
           echo "frontend_image=ghcr.io/${{ github.repository }}-frontend:${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
 
       - name: Run Frontend Playbook
         working-directory: infra/ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: False
         run: |
           ansible-galaxy collection install community.docker
+
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
 
           ansible-playbook deploy.yml \
             --vault-password-file .vault_pass \
