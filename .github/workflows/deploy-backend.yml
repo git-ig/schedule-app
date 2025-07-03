@@ -116,7 +116,60 @@ jobs:
         run: |
           mkdir -p ../../ansible/inventory
 
-          terraform output -json ansible_inventory | jq -r '.value' > ../../ansible/inventory/gcp.yml
+          BASTION_IP=$(terraform output -raw bastion_public_ip)
+          BACKEND_IP=$(terraform output -raw backend_private_ip)
+          FRONTEND_IP=$(terraform output -raw frontend_private_ip)
+          DATABASE_IP=$(terraform output -raw database_private_ip)
+          MONITORING_IP=$(terraform output -raw monitoring_private_ip)
+          SSH_USER="${{ secrets.GCP_SSH_USER }}"
+
+          echo "=== Retrieved IPs ==="
+          echo "Bastion: $BASTION_IP"
+          echo "Backend: $BACKEND_IP"
+          echo "Frontend: $FRONTEND_IP"
+          echo "Database: $DATABASE_IP"
+          echo "Monitoring: $MONITORING_IP"
+          echo "SSH User: $SSH_USER"
+
+          cat > ../../ansible/inventory/gcp.yml << EOF
+          ---
+          all:
+            vars:
+              ansible_user: $SSH_USER
+              ansible_ssh_private_key_file: "~/.ssh/id_rsa"
+              ansible_ssh_common_args: |
+                -o ProxyCommand="ssh -W %h:%p -q $SSH_USER@$BASTION_IP"
+                -o StrictHostKeyChecking=no
+                -o UserKnownHostsFile=/dev/null
+
+            children:
+              bastion:
+                hosts:
+                  bastion:
+                    ansible_host: $BASTION_IP
+
+              private_instances:
+                children:
+                  frontend:
+                    hosts:
+                      frontend:
+                        ansible_host: $FRONTEND_IP
+
+                  backend:
+                    hosts:
+                      backend:
+                        ansible_host: $BACKEND_IP
+
+                  database:
+                    hosts:
+                      database:
+                        ansible_host: $DATABASE_IP
+
+                  monitoring:
+                    hosts:
+                      monitoring:
+                        ansible_host: $MONITORING_IP
+          EOF
 
           echo "--- ANSIBLE INVENTORY CONTENT ---"
           cat ../../ansible/inventory/gcp.yml
