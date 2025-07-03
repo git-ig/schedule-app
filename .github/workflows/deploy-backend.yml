@@ -74,7 +74,7 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
           PUB_KEY_CONTENT=$(cat ~/.ssh/id_rsa.pub)
-          
+
           # --- Create terraform.tfvars ---
           cat > infra/terraform/gcp/terraform.tfvars << EOF
           project_id               = "${{ secrets.GCP_PROJECT_ID }}"
@@ -84,7 +84,7 @@ jobs:
           ssh_public_key_content   = "$PUB_KEY_CONTENT"
           bucket_name              = "${{ secrets.GCS_BUCKET_NAME }}"
           EOF
-          
+
           echo "--- tfvars created ---"
           cat infra/terraform/gcp/terraform.tfvars
 
@@ -125,7 +125,7 @@ jobs:
           echo "--- SSH Config Created ---"
           cat ~/.ssh/config
           echo "--------------------------"
-          
+
           echo "--- Testing Connection to Bastion ---"
           ssh -o ConnectTimeout=30 bastion "echo 'SSH connection to bastion successful'"
 
@@ -141,18 +141,25 @@ jobs:
           MONITORING_IP=$(terraform output -raw monitoring_private_ip)
           SSH_USER="${{ secrets.GCP_SSH_USER }}"
 
-          # Создаем максимально простой инвентарь
+          # Создаем директорию inventory если она не существует
+          mkdir -p ../../ansible/inventory
+
+          # Создаем инвентарь с правильной конфигурацией SSH
           cat > ../../ansible/inventory/gcp.yml << EOF
           ---
           all:
             vars:
               ansible_user: $SSH_USER
+              ansible_ssh_private_key_file: ~/.ssh/id_rsa
+              ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
             children:
               bastion_group:
                 hosts:
                   bastion_host:
                     ansible_host: $BASTION_IP
               private_instances:
+                vars:
+                  ansible_ssh_common_args: '-o ProxyCommand="ssh -W %h:%p -q $SSH_USER@$BASTION_IP -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
                 children:
                   frontend_group:
                     hosts:
@@ -177,25 +184,50 @@ jobs:
           echo "---------------------------------"
           echo "backend_image=ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
 
+      - name: Debug directory structure
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Directory structure:"
+          find . -type d -name "*ansible*" -o -name "*inventory*" | head -20
+          echo "Full structure from root:"
+          ls -la
+
+      - name: Verify SSH Setup
+        run: |
+          echo "=== SSH Key Check ==="
+          ls -la ~/.ssh/
+          echo "=== SSH Config ==="
+          cat ~/.ssh/config || echo "No SSH config found"
+          echo "=== Testing SSH to Bastion ==="
+          cd infra/terraform/gcp
+          BASTION_IP=$(terraform output -raw bastion_public_ip)
+          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${{ secrets.GCP_SSH_USER }}@$BASTION_IP "echo 'Bastion connection successful'"
+
       - name: Run Backend Playbook
         working-directory: infra/ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: False
         run: |
+          # Настраиваем SSH Agent заново
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+
           # Проверяем SSH agent
           echo "=== SSH Agent Status ==="
-          ssh-add -l || echo "No SSH keys loaded"
+          ssh-add -l
 
           # Проверяем inventory
           echo "=== Inventory Check ==="
-          if ! ansible-inventory -i ./inventory/gcp.yml --list | jq -e '.backend_group.hosts // empty' > /dev/null; then
-            echo "ERROR: No backend hosts found in inventory"
-            echo "Available groups:"
-            ansible-inventory -i ./inventory/gcp.yml --list | jq -r 'keys[]'
-            exit 1
-          fi
+          ansible-inventory -i ./inventory/gcp.yml --list
 
-          # Тестируем подключение только к backend
+          # Проверяем доступность bastion
+          echo "=== Testing Bastion Connection ==="
+          ansible bastion_group -i ./inventory/gcp.yml -m ping -vv
+
+          # Тестируем подключение к backend через bastion
           echo "=== Testing Backend Connection ==="
-          ansible backend_group -i ./inventory/gcp.yml -m ping -vv || echo "Backend connection test failed"
+          ansible backend_group -i ./inventory/gcp.yml -m ping -vv
 
           # Запускаем playbook только для backend
           echo "=== Running Backend Playbook ==="
@@ -203,4 +235,5 @@ jobs:
             --vault-password-file .vault_pass \
             --extra-vars "backend_image_url=${{ steps.terraform_outputs.outputs.backend_image }}" \
             --limit backend_group \
+            -i ./inventory/gcp.yml \
             -vv
