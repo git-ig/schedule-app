@@ -40,12 +40,10 @@ jobs:
 
       - name: Generate SSH Key and Create tfvars
         run: |
-          # Генерируем SSH ключ
           mkdir -p ~/.ssh
           ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
           PUB_KEY_CONTENT=$(cat ~/.ssh/id_rsa.pub)
 
-          # Создаем terraform.tfvars
           cat > infra/terraform/gcp/terraform.tfvars << EOF
           project_id               = "${{ secrets.GCP_PROJECT_ID }}"
           region                   = "${{ secrets.GCP_REGION }}"
@@ -54,6 +52,23 @@ jobs:
           ssh_public_key_content   = "$PUB_KEY_CONTENT"
           bucket_name              = "${{ secrets.GCS_BUCKET_NAME }}"
           EOF
+
+      - name: Configure Ansible Vault
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: echo "$ANSIBLE_VAULT_PASSWORD" > infra/ansible/.vault_pass
+
+      - name: Create Terraform backend config
+        env:
+          GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
+        working-directory: infra/terraform/gcp
+        run: |
+          echo "bucket = \"$GCS_BUCKET_NAME\"" > backend.conf
+          echo "prefix = \"terraform/state\"" >> backend.conf
+
+      - name: Initialize Terraform
+        working-directory: infra/terraform/gcp
+        run: terraform init -backend-config=backend.conf
 
       - name: Setup SSH Agent and Config
         env:
@@ -82,23 +97,6 @@ jobs:
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
           EOF
-
-      - name: Configure Ansible Vault
-        env:
-          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: echo "$ANSIBLE_VAULT_PASSWORD" > infra/ansible/.vault_pass
-
-      - name: Create Terraform backend config
-        env:
-          GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
-        working-directory: infra/terraform/gcp
-        run: |
-          echo "bucket = \"$GCS_BUCKET_NAME\"" > backend.conf
-          echo "prefix = \"terraform/state\"" >> backend.conf
-
-      - name: Initialize Terraform
-        working-directory: infra/terraform/gcp
-        run: terraform init -backend-config=backend.conf
 
       - name: Generate Ansible Inventory
         id: terraform_outputs
