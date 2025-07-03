@@ -55,8 +55,6 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      ssh -o ConnectTimeout=30 bastion "echo 'SSH connection to bastion successful'"
-
       - name: Create Terraform backend config
         env:
           GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
