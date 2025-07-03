@@ -98,7 +98,7 @@ jobs:
         working-directory: infra/terraform/gcp
         run: |
           mkdir -p ../../ansible/inventory
-          terraform output -raw ansible_inventory > ../../ansible/inventory/gcp.yml
+          terraform output -raw ansible_inventory | sed -n '/\[bastion\]/,$ p' > ../../ansible/inventory/gcp.yml
           echo "--- ANSIBLE INVENTORY CONTENT ---"
           cat ../../ansible/inventory/gcp.yml
           echo "---------------------------------"
