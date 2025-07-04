@@ -1,26 +1,26 @@
-name: Deploy Frontend
+name: Deploy Reverse Proxy
 
 on:
-  workflow_run:
-    workflows: ["Frontend CI"]
-    types:
-      - completed
+  push:
     branches:
       - main
       - dev
+    paths:
+      - "infra/ansible/roles/reverse-proxy/**"
+      - ".github/workflows/deploy-reverse-proxy.yml"
   workflow_dispatch:
 
 concurrency:
-  group: frontend-deploy-${{ github.ref }}
+  group: reverse-proxy-deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy-frontend:
+  deploy-reverse-proxy:
+    name: Deploy Reverse Proxy
     permissions:
       contents: "read"
       id-token: "write"
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout repository
@@ -48,14 +48,12 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
           SSH_PUBLIC_KEY: ${{ secrets.GCP_SSH_PUBLIC_KEY }}
         run: |
-          # --- Use existing SSH Keys ---
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           echo "$SSH_PUBLIC_KEY" > ~/.ssh/id_rsa.pub
           chmod 600 ~/.ssh/id_rsa
           chmod 644 ~/.ssh/id_rsa.pub
 
-          # --- Create terraform.tfvars ---
           cat > infra/terraform/gcp/terraform.tfvars << EOF
           project_id               = "${{ secrets.GCP_PROJECT_ID }}"
           region                   = "${{ secrets.GCP_REGION }}"
@@ -64,9 +62,6 @@ jobs:
           ssh_public_key_content   = "$SSH_PUBLIC_KEY"
           bucket_name              = "${{ secrets.GCS_BUCKET_NAME }}"
           EOF
-
-          echo "--- tfvars created ---"
-          cat infra/terraform/gcp/terraform.tfvars
 
       - name: Configure Ansible Vault
         env:
@@ -84,10 +79,6 @@ jobs:
       - name: Initialize Terraform
         working-directory: infra/terraform/gcp
         run: terraform init -backend-config=backend.conf
-
-      - name: Terraform Apply
-        working-directory: infra/terraform/gcp
-        run: terraform apply -auto-approve -var-file="terraform.tfvars"
 
       - name: Setup SSH Agent and Config
         env:
@@ -118,7 +109,6 @@ jobs:
           EOF
 
       - name: Generate Ansible Inventory
-        id: terraform_outputs
         working-directory: infra/terraform/gcp
         run: |
           BASTION_IP=$(terraform output -raw bastion_public_ip)
@@ -164,9 +154,7 @@ jobs:
                         ansible_host: $MONITORING_IP
           EOF
 
-          echo "frontend_image=ghcr.io/${{ github.repository }}-frontend:${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
-
-      - name: Run Frontend Playbook
+      - name: Run Reverse Proxy Playbook
         working-directory: infra/ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: False
@@ -176,8 +164,6 @@ jobs:
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
 
-          ansible-playbook deploy.yml \
+          ansible-playbook deploy.yml --tags reverse-proxy \
             --vault-password-file .vault_pass \
-            --extra-vars "frontend_image_url=${{ steps.terraform_outputs.outputs.frontend_image }}" \
-            --limit frontend_group \
             -vv
