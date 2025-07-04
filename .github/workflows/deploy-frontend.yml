@@ -38,20 +38,30 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      - name: Generate SSH Key and Create tfvars
+      - name: Use existing SSH Key and Create tfvars
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          SSH_PUBLIC_KEY: ${{ secrets.GCP_SSH_PUBLIC_KEY }}
         run: |
+          # --- Use existing SSH Keys ---
           mkdir -p ~/.ssh
-          ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
-          PUB_KEY_CONTENT=$(cat ~/.ssh/id_rsa.pub)
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          echo "$SSH_PUBLIC_KEY" > ~/.ssh/id_rsa.pub
+          chmod 600 ~/.ssh/id_rsa
+          chmod 644 ~/.ssh/id_rsa.pub
 
+          # --- Create terraform.tfvars ---
           cat > infra/terraform/gcp/terraform.tfvars << EOF
           project_id               = "${{ secrets.GCP_PROJECT_ID }}"
           region                   = "${{ secrets.GCP_REGION }}"
           zone                     = "${{ secrets.GCP_ZONE }}"
           ssh_user                 = "${{ secrets.GCP_SSH_USER }}"
-          ssh_public_key_content   = "$PUB_KEY_CONTENT"
+          ssh_public_key_content   = "$SSH_PUBLIC_KEY"
           bucket_name              = "${{ secrets.GCS_BUCKET_NAME }}"
           EOF
+
+          echo "--- tfvars created ---"
+          cat infra/terraform/gcp/terraform.tfvars
 
       - name: Configure Ansible Vault
         env:

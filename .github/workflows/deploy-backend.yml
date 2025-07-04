@@ -2,7 +2,7 @@ name: Deploy Backend
 
 on:
   workflow_run:
-    workflows: ["Build and Analyze"]
+    workflows: ["Build and Analyze "]
     types:
       - completed
     branches:
@@ -67,13 +67,17 @@ jobs:
         working-directory: infra/terraform/gcp
         run: terraform init -backend-config=backend.conf
 
-      - name: Generate SSH Key and Create tfvars
-        id: ssh_and_tfvars
+      - name: Use existing SSH Key and Create tfvars
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          SSH_PUBLIC_KEY: ${{ secrets.GCP_SSH_PUBLIC_KEY }}
         run: |
-          # --- SSH Key Generation ---
+          # --- Use existing SSH Keys ---
           mkdir -p ~/.ssh
-          ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
-          PUB_KEY_CONTENT=$(cat ~/.ssh/id_rsa.pub)
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          echo "$SSH_PUBLIC_KEY" > ~/.ssh/id_rsa.pub
+          chmod 600 ~/.ssh/id_rsa
+          chmod 644 ~/.ssh/id_rsa.pub
 
           # --- Create terraform.tfvars ---
           cat > infra/terraform/gcp/terraform.tfvars << EOF
@@ -81,7 +85,7 @@ jobs:
           region                   = "${{ secrets.GCP_REGION }}"
           zone                     = "${{ secrets.GCP_ZONE }}"
           ssh_user                 = "${{ secrets.GCP_SSH_USER }}"
-          ssh_public_key_content   = "$PUB_KEY_CONTENT"
+          ssh_public_key_content   = "$SSH_PUBLIC_KEY"
           bucket_name              = "${{ secrets.GCS_BUCKET_NAME }}"
           EOF
 
@@ -133,7 +137,7 @@ jobs:
         id: terraform_outputs
         working-directory: infra/terraform/gcp
         run: |
-          # Получаем IPs
+          # Get IPs
           BASTION_IP=$(terraform output -raw bastion_public_ip)
           BACKEND_IP=$(terraform output -raw backend_private_ip)
           FRONTEND_IP=$(terraform output -raw frontend_private_ip)
@@ -141,10 +145,10 @@ jobs:
           MONITORING_IP=$(terraform output -raw monitoring_private_ip)
           SSH_USER="${{ secrets.GCP_SSH_USER }}"
 
-          # Создаем директорию inventory если она не существует
+          # Create inventory dir
           mkdir -p ../../ansible/inventory
 
-          # Создаем инвентарь с правильной конфигурацией SSH
+          # Create inventory with right SSH configuration
           cat > ../../ansible/inventory/gcp.yml << EOF
           ---
           all:
@@ -210,30 +214,24 @@ jobs:
           ANSIBLE_REMOTE_USER: ${{ secrets.GCP_SSH_USER }}
           ANSIBLE_HOST_KEY_CHECKING: False
         run: |
-          # Устанавливаем Docker коллекцию
           ansible-galaxy collection install community.docker
 
-          # Настраиваем SSH Agent заново
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
 
-          # Проверяем SSH agent
           echo "=== SSH Agent Status ==="
           ssh-add -l
 
-          # Проверяем inventory
           echo "=== Inventory Check ==="
           ansible-inventory -i ./inventory/gcp.yml --list
 
-          # Проверяем доступность bastion
           echo "=== Testing Bastion Connection ==="
           ansible bastion_group -i ./inventory/gcp.yml -m ping -vv
 
-          # Тестируем подключение к backend через bastion
           echo "=== Testing Backend Connection ==="
           ansible backend_group -i ./inventory/gcp.yml -m ping -vv
 
-          # Запускаем playbook БЕЗ --tags, но с --limit (это позволит выполнить роль common)
+          # Apply playbook WITHOUT --tags, but using --limit (to execute common role)
           echo "=== Running Backend Playbook ==="
           ansible-playbook deploy.yml \
             --vault-password-file .vault_pass \
