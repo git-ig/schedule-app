@@ -33,3 +33,9 @@ variable "bucket_name" {
   description = "The name of the GCS bucket for Terraform state."
   type        = string
 }
+
+variable "service_account_email" {
+  description = "Email of the service account for GCS bucket access"
+  type        = string
+  default     = ""
+}
