@@ -31,22 +31,24 @@
     GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
   become: true
 
+- name: Set bucket name variable
+  ansible.builtin.set_fact:
+    bucket_name: "{{ database_bucket_name }}"
+
 - name: Create GCS bucket if not exists
   ansible.builtin.shell: |
     # Create bucket if it doesn't exist
-    BUCKET_NAME="{{ database_bucket_name }}"
-    if ! gsutil ls gs://$BUCKET_NAME 2>/dev/null; then
-      gsutil mb gs://$BUCKET_NAME
-      echo "+++ Created GCS bucket: $BUCKET_NAME"
+    if ! gsutil ls gs://{{ bucket_name }} 2>/dev/null; then
+      gsutil mb gs://{{ bucket_name }}
+      echo "+++ Created GCS bucket: {{ bucket_name }}"
+    else
+      echo "+++ GCS bucket already exists: {{ bucket_name }}"
     fi
   register: bucket_creation_result
   changed_when: "'Created GCS bucket' in bucket_creation_result.stdout"
 
 - name: Upload database dump to GCS bucket first
   ansible.builtin.shell: |
-    BUCKET_NAME="{{ database_bucket_name }}"
-    ROLE_PATH="{{ role_path }}"
-
     # Check if local dump file exists in role files
     if [ -f "$ROLE_PATH/files/database.dump" ]; then
       echo "[!!!] Uploading local database dump to GCS bucket..."
@@ -57,23 +59,27 @@
       echo "Expected file: $ROLE_PATH/files/database.dump"
       exit 1
     fi
+  environment:
+    BUCKET_NAME: "{{ database_bucket_name }}"
+    ROLE_PATH: "{{ role_path }}"
   register: upload_result
   failed_when: upload_result.rc != 0
 
 - name: Verify dump exists in bucket
-  ansible.builtin.shell: |
-    gsutil ls gs://{{ database_bucket_name }}/database.dump
+  ansible.builtin.shell: gsutil ls gs://$BUCKET_NAME/database.dump
+  environment:
+    BUCKET_NAME: "{{ database_bucket_name }}"
   register: dump_verification
   failed_when: dump_verification.rc != 0
 
 - name: Download database dump from GCS bucket
   ansible.builtin.shell: |
-    BUCKET_NAME="{{ database_bucket_name }}"
-    USER_HOME="/home/{{ ansible_user }}"
-
     echo "📥 Downloading database dump from GCS bucket..."
     gsutil cp gs://$BUCKET_NAME/database.dump $USER_HOME/database/init/database.dump
     echo "✅ Database dump downloaded successfully"
+  environment:
+    BUCKET_NAME: "{{ database_bucket_name }}"
+    USER_HOME: "/home/{{ ansible_user }}"
   register: download_result
   failed_when: download_result.rc != 0
 
