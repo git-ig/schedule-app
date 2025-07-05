@@ -1,13 +1,13 @@
 name: Deploy Frontend
 
 on:
-  push:
-    branches:
-      - main
-      - dev
-    paths:
-      - "frontend/**"
-      - ".github/workflows/deploy-frontend.yml"
+  # push:
+  #   branches:
+  #     - main
+  #     - dev
+  #   paths:
+  #     - "frontend/**"
+  #     - ".github/workflows/deploy-frontend.yml"
   pull_request:
     branches:
       - main
@@ -191,7 +191,7 @@ jobs:
                         ansible_host: $MONITORING_IP
           EOF
 
-          echo "frontend_image=ghcr.io/${{ github.repository }}-frontend:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "frontend_image=ghcr.io/${{ github.repository }}-frontend:latest" >> $GITHUB_OUTPUT
 
       - name: Run Frontend Playbook
         working-directory: infra/ansible
