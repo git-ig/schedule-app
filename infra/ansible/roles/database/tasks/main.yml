@@ -80,13 +80,13 @@
   become: true
   no_log: true
 
-- name: Authenticate with GCP using service account
-  ansible.builtin.shell: |
-    gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
-  environment:
-    GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
-  become: true
-  changed_when: false
+# - name: Authenticate with GCP using service account
+#   ansible.builtin.shell: |
+#     gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+#   environment:
+#     GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+#   become: true
+#   changed_when: false
 
 # - name: Set bucket name variable
 #   ansible.builtin.set_fact:
@@ -131,12 +131,16 @@
     # Authenticate and download in single context
     gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
 
-    echo "📥 Downloading database dump from GCS bucket..."
+    echo "-> Downloading database dump from GCS bucket..."
     gcloud storage cp gs://{{ database_dump_bucket }}/database.dump \
       /home/{{ ansible_user }}/database/init/database.dump
-    echo "✅ Database dump downloaded successfully"
+    echo "+++ Database dump downloaded successfully"
+
+    # Fix ownership after download
+    chown {{ ansible_user }}:{{ ansible_user }} /home/{{ ansible_user }}/database/init/database.dump
   environment:
     GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+  become: true
   register: download_result
   failed_when: download_result.rc != 0
   changed_when: "'downloaded successfully' in download_result.stdout"
