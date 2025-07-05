@@ -88,48 +88,48 @@
   become: true
   changed_when: false
 
-- name: Set bucket name variable
-  ansible.builtin.set_fact:
-    bucket_name: "{{ database_bucket_name }}"
+# - name: Set bucket name variable
+#   ansible.builtin.set_fact:
+#     bucket_name: "{{ database_bucket_name }}"
 
-- name: Verify dump exists in private bucket and copy to deployment bucket
-  ansible.builtin.shell: |
-    echo "[!!!] Checking if database dump exists in private storage..."
+# - name: Verify dump exists in private bucket and copy to deployment bucket
+#   ansible.builtin.shell: |
+#     echo "[!!!] Checking if database dump exists in private storage..."
 
-    # Check if dump exists in private bucket
-    if gcloud storage ls gs://crested-primacy-461013-t6-private-dumps/database.dump 2>/dev/null; then
-      echo "[+++] Database dump found in private storage"
+#     # Check if dump exists in private bucket
+#     if gcloud storage ls gs://crested-primacy-461013-t6-private-dumps/database.dump 2>/dev/null; then
+#       echo "[+++] Database dump found in private storage"
 
-      # Copy from private bucket to deployment bucket
-      echo "[!!!] Copying database dump to deployment bucket..."
-      gcloud storage cp gs://crested-primacy-461013-t6-private-dumps/database.dump \
-        gs://{{ database_bucket_name }}/database.dump
+#       # Copy from private bucket to deployment bucket
+#       echo "[!!!] Copying database dump to deployment bucket..."
+#       gcloud storage cp gs://crested-primacy-461013-t6-private-dumps/database.dump \
+#         gs://{{ database_bucket_name }}/database.dump
 
-      echo "[+++] Database dump copied successfully"
-    else
-      echo "[XXX] -> DATABASE DUMP NOT FOUND in private bucket!"
-      echo "Expected: gs://crested-primacy-461013-t6-private-dumps/database.dump"
-      echo "Please upload the dump to private bucket first"
-      exit 1
-    fi
-  delegate_to: localhost
-  run_once: true
-  register: upload_result
-  failed_when: upload_result.rc != 0
-  changed_when: "'copied successfully' in upload_result.stdout"
+#       echo "[+++] Database dump copied successfully"
+#     else
+#       echo "[XXX] -> DATABASE DUMP NOT FOUND in private bucket!"
+#       echo "Expected: gs://crested-primacy-461013-t6-private-dumps/database.dump"
+#       echo "Please upload the dump to private bucket first"
+#       exit 1
+#     fi
+#   delegate_to: localhost
+#   run_once: true
+#   register: upload_result
+#   failed_when: upload_result.rc != 0
+#   changed_when: "'copied successfully' in upload_result.stdout"
 
-- name: Verify dump exists in bucket
-  ansible.builtin.shell: gcloud storage ls gs://{{ database_bucket_name }}/database.dump
-  delegate_to: localhost
-  run_once: true
-  register: dump_verification
-  failed_when: dump_verification.rc != 0
-  changed_when: false
+# - name: Verify dump exists in bucket
+#   ansible.builtin.shell: gcloud storage ls gs://{{ database_bucket_name }}/database.dump
+#   delegate_to: localhost
+#   run_once: true
+#   register: dump_verification
+#   failed_when: dump_verification.rc != 0
+#   changed_when: false
 
 - name: Download database dump from GCS bucket
   ansible.builtin.shell: |
     echo "📥 Downloading database dump from GCS bucket..."
-    gcloud storage cp gs://{{ database_bucket_name }}/database.dump \
+    gcloud storage cp gs://{{ database_dump_bucket }}/database.dump \
       /home/{{ ansible_user }}/database/init/database.dump
     echo "✅ Database dump downloaded successfully"
   register: download_result
