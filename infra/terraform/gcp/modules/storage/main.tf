@@ -29,7 +29,7 @@ resource "google_storage_bucket" "database_dumps" {
 # KMS key for encryption
 resource "google_kms_key_ring" "database" {
   name     = "database-keyring"
-  location = "global"
+  location = "us-central1"
 }
 
 resource "google_kms_crypto_key" "database_key" {
