@@ -106,18 +106,22 @@
 
 - name: Upload database dump to GCS bucket first
   ansible.builtin.shell: |
-    # Upload dump from GitHub Actions runner (control node)
-    if [ -f "{{ role_path }}/files/database.dump" ]; then
+    # Change to the correct directory first
+    cd /home/runner/work/schedule-app/schedule-app
+
+    # Check if local dump file exists in role files
+    if [ -f "infra/ansible/roles/database/files/database.dump" ]; then
       echo "[!!!] Uploading local database dump to GCS bucket..."
-      gsutil cp "{{ role_path }}/files/database.dump" gs://$BUCKET_NAME/database.dump
+      gsutil cp "infra/ansible/roles/database/files/database.dump" gs://{{ database_bucket_name }}/database.dump
       echo "[+++] Local database dump uploaded successfully"
     else
       echo "[XXX] -> DUMP NOT FOUND !!!"
-      echo "Expected file: {{ role_path }}/files/database.dump"
+      echo "Expected file: infra/ansible/roles/database/files/database.dump"
+      echo "Current directory: $(pwd)"
+      echo "Files in role directory:"
+      ls -la infra/ansible/roles/database/files/ || echo "Directory not found"
       exit 1
     fi
-  environment:
-    BUCKET_NAME: "{{ database_bucket_name }}"
   delegate_to: localhost
   run_once: true
   register: upload_result
