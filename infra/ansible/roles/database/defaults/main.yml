@@ -9,9 +9,9 @@ database_bucket_name: "{{ project_id }}-database-dumps"
 database_dump_filename: "database.dump"
 
 # PostgreSQL settings
-postgres_version: "13-alpine"
-postgres_port: 5432
+database_postgres_version: "13-alpine"
+database_postgres_port: 5432
 
 # Redis settings
-redis_version: "7-alpine"
-redis_port: 6379
+database_redis_version: "7-alpine"
+database_redis_port: 6379
