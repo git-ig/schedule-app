@@ -119,6 +119,14 @@ jobs:
           MONITORING_IP=$(terraform output -raw monitoring_private_ip)
           SSH_USER="${{ secrets.GCP_SSH_USER }}"
 
+          echo "=== INFRASTRUCTURE IP ADDRESSES ==="
+          echo "Bastion Host Public IP: $BASTION_IP"
+          echo "Database Host Private IP: $DATABASE_IP"
+          echo "Backend Host Private IP: $BACKEND_IP"
+          echo "Frontend Host Private IP: $FRONTEND_IP"
+          echo "Monitoring Host Private IP: $MONITORING_IP"
+          echo "==================================="
+
           mkdir -p ../../ansible/inventory
 
           cat > ../../ansible/inventory/gcp.yml << EOF
