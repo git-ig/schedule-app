@@ -163,6 +163,7 @@ jobs:
           ANSIBLE_HOST_KEY_CHECKING: False
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
         run: |
+          # Create temporary GCP credentials file for Ansible
           echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > /tmp/gcp-key.json
 
           ansible-galaxy collection install community.docker
@@ -176,4 +177,5 @@ jobs:
             --extra-vars "project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -vv
 
+          # Clean up temporary credentials file
           rm -f /tmp/gcp-key.json
