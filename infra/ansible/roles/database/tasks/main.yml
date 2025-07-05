@@ -92,46 +92,36 @@
   ansible.builtin.set_fact:
     bucket_name: "{{ database_bucket_name }}"
 
-- name: Create GCS bucket if not exists
+- name: Verify dump exists in private bucket and copy to deployment bucket
   ansible.builtin.shell: |
-    # Create bucket if it does not exist
-    if ! gsutil ls gs://{{ bucket_name }} 2>/dev/null; then
-      gsutil mb gs://{{ bucket_name }}
-      echo "+++ Created GCS bucket: {{ bucket_name }}"
-    else
-      echo "+++ GCS bucket already exists: {{ bucket_name }}"
-    fi
-  register: bucket_creation_result
-  changed_when: "'Created GCS bucket' in bucket_creation_result.stdout"
+    echo "[!!!] Checking if database dump exists in private storage..."
 
-- name: Upload database dump to GCS bucket first
-  ansible.builtin.shell: |
-    # Change to the correct directory first
-    cd /home/runner/work/schedule-app/schedule-app
+    # Check if dump exists in private bucket
+    if gcloud storage ls gs://crested-primacy-461013-t6-private-dumps/database.dump 2>/dev/null; then
+      echo "[+++] Database dump found in private storage"
 
-    # Check if local dump file exists in role files
-    if [ -f "infra/ansible/roles/database/files/database.dump" ]; then
-      echo "[!!!] Uploading local database dump to GCS bucket..."
-      gsutil cp "infra/ansible/roles/database/files/database.dump" gs://{{ database_bucket_name }}/database.dump
-      echo "[+++] Local database dump uploaded successfully"
+      # Copy from private bucket to deployment bucket
+      echo "[!!!] Copying database dump to deployment bucket..."
+      gcloud storage cp gs://crested-primacy-461013-t6-private-dumps/database.dump \
+        gs://{{ database_bucket_name }}/database.dump
+
+      echo "[+++] Database dump copied successfully"
     else
-      echo "[XXX] -> DUMP NOT FOUND !!!"
-      echo "Expected file: infra/ansible/roles/database/files/database.dump"
-      echo "Current directory: $(pwd)"
-      echo "Files in role directory:"
-      ls -la infra/ansible/roles/database/files/ || echo "Directory not found"
+      echo "[XXX] -> DATABASE DUMP NOT FOUND in private bucket!"
+      echo "Expected: gs://crested-primacy-461013-t6-private-dumps/database.dump"
+      echo "Please upload the dump to private bucket first"
       exit 1
     fi
   delegate_to: localhost
   run_once: true
   register: upload_result
   failed_when: upload_result.rc != 0
-  changed_when: "'uploaded successfully' in upload_result.stdout"
+  changed_when: "'copied successfully' in upload_result.stdout"
 
 - name: Verify dump exists in bucket
-  ansible.builtin.shell: gsutil ls gs://$BUCKET_NAME/database.dump
-  environment:
-    BUCKET_NAME: "{{ database_bucket_name }}"
+  ansible.builtin.shell: gcloud storage ls gs://{{ database_bucket_name }}/database.dump
+  delegate_to: localhost
+  run_once: true
   register: dump_verification
   failed_when: dump_verification.rc != 0
   changed_when: false
@@ -139,11 +129,9 @@
 - name: Download database dump from GCS bucket
   ansible.builtin.shell: |
     echo "📥 Downloading database dump from GCS bucket..."
-    gsutil cp gs://$BUCKET_NAME/database.dump $USER_HOME/database/init/database.dump
+    gcloud storage cp gs://{{ database_bucket_name }}/database.dump \
+      /home/{{ ansible_user }}/database/init/database.dump
     echo "✅ Database dump downloaded successfully"
-  environment:
-    BUCKET_NAME: "{{ database_bucket_name }}"
-    USER_HOME: "/home/{{ ansible_user }}"
   register: download_result
   failed_when: download_result.rc != 0
   changed_when: "'downloaded successfully' in download_result.stdout"
