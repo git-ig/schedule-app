@@ -34,54 +34,31 @@
 - name: Create GCS bucket if not exists
   ansible.builtin.shell: |
     # Create bucket if it doesn't exist
-    if ! gsutil ls gs://{{ database_bucket_name }} 2>/dev/null; then
-      gsutil mb gs://{{ database_bucket_name }}
-      echo "✅ Created GCS bucket: {{ database_bucket_name }}"
+    BUCKET_NAME="{{ database_bucket_name }}"
+    if ! gsutil ls gs://$BUCKET_NAME 2>/dev/null; then
+      gsutil mb gs://$BUCKET_NAME
+      echo "+++ Created GCS bucket: $BUCKET_NAME"
     fi
+  register: bucket_creation_result
+  changed_when: "'Created GCS bucket' in bucket_creation_result.stdout"
 
 - name: Upload database dump to GCS bucket first
   ansible.builtin.shell: |
+    BUCKET_NAME="{{ database_bucket_name }}"
+    ROLE_PATH="{{ role_path }}"
+
     # Check if local dump file exists in role files
-    if [ -f "{{ role_path }}/files/database.dump" ]; then
-      echo "📤 Uploading local database dump to GCS bucket..."
-      gsutil cp "{{ role_path }}/files/database.dump" gs://{{ database_bucket_name }}/database.dump
-      echo "✅ Local database dump uploaded successfully"
+    if [ -f "$ROLE_PATH/files/database.dump" ]; then
+      echo "[!!!] Uploading local database dump to GCS bucket..."
+      gsutil cp "$ROLE_PATH/files/database.dump" gs://$BUCKET_NAME/database.dump
+      echo "[+++] Local database dump uploaded successfully"
     else
-      # Create sample dump for development
-      echo "📝 Creating sample database dump..."
-      cat > /tmp/sample-database.dump << 'EOF'
-    --
-    -- PostgreSQL database dump for Schedule App
-    --
-
-    SET statement_timeout = 0;
-    SET lock_timeout = 0;
-    SET client_encoding = 'UTF8';
-    SET standard_conforming_strings = on;
-
-    -- Create schedules table
-    CREATE TABLE IF NOT EXISTS schedules (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        start_time TIMESTAMP,
-        end_time TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    -- Insert sample data
-    INSERT INTO schedules (title, description, start_time, end_time) VALUES
-    ('Morning Meeting', 'Daily standup meeting', '2025-07-05 09:00:00', '2025-07-05 09:30:00'),
-    ('Project Review', 'Weekly project review', '2025-07-05 14:00:00', '2025-07-05 15:00:00'),
-    ('Team Building', 'Monthly team building event', '2025-07-05 16:00:00', '2025-07-05 18:00:00'),
-    ('Code Review', 'Backend code review session', '2025-07-06 10:00:00', '2025-07-06 11:00:00'),
-    ('Database Migration', 'Update database schema', '2025-07-06 15:00:00', '2025-07-06 16:00:00');
-    EOF
-
-          gsutil cp /tmp/sample-database.dump gs://{{ database_bucket_name }}/database.dump
-          rm -f /tmp/sample-database.dump
-          echo "✅ Sample database dump created and uploaded"
-        fi
+      echo "[XXX] -> DUMP NOT FOUND !!!"
+      echo "Expected file: $ROLE_PATH/files/database.dump"
+      exit 1
+    fi
+  register: upload_result
+  failed_when: upload_result.rc != 0
 
 - name: Verify dump exists in bucket
   ansible.builtin.shell: |
@@ -91,9 +68,11 @@
 
 - name: Download database dump from GCS bucket
   ansible.builtin.shell: |
+    BUCKET_NAME="{{ database_bucket_name }}"
+    USER_HOME="/home/{{ ansible_user }}"
+
     echo "📥 Downloading database dump from GCS bucket..."
-    gsutil cp gs://{{ database_bucket_name }}/database.dump \
-      /home/{{ ansible_user }}/database/init/database.dump
+    gsutil cp gs://$BUCKET_NAME/database.dump $USER_HOME/database/init/database.dump
     echo "✅ Database dump downloaded successfully"
   register: download_result
   failed_when: download_result.rc != 0
