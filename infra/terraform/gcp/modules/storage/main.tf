@@ -30,6 +30,7 @@ resource "google_storage_bucket" "database_dumps" {
 resource "google_kms_key_ring" "database" {
   name     = "database-keyring"
   location = "us-central1"
+  project  = var.project_id
 }
 
 resource "google_kms_crypto_key" "database_key" {

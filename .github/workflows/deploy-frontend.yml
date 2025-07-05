@@ -48,14 +48,12 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
           SSH_PUBLIC_KEY: ${{ secrets.GCP_SSH_PUBLIC_KEY }}
         run: |
-          # --- Use existing SSH Keys ---
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           echo "$SSH_PUBLIC_KEY" > ~/.ssh/id_rsa.pub
           chmod 600 ~/.ssh/id_rsa
           chmod 644 ~/.ssh/id_rsa.pub
 
-          # --- Create terraform.tfvars ---
           cat > infra/terraform/gcp/terraform.tfvars << EOF
           project_id               = "${{ secrets.GCP_PROJECT_ID }}"
           region                   = "${{ secrets.GCP_REGION }}"
@@ -65,9 +63,6 @@ jobs:
           bucket_name              = "${{ secrets.GCS_BUCKET_NAME }}"
           service_account_email    = "schedule-frontend@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
           EOF
-
-          echo "--- tfvars created ---"
-          cat infra/terraform/gcp/terraform.tfvars
 
       - name: Configure Ansible Vault
         env:
