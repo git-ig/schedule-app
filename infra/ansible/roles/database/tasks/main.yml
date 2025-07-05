@@ -37,7 +37,7 @@
 
 - name: Create GCS bucket if not exists
   ansible.builtin.shell: |
-    # Create bucket if it doesn't exist
+    # Create bucket if it does not exist
     if ! gsutil ls gs://{{ bucket_name }} 2>/dev/null; then
       gsutil mb gs://{{ bucket_name }}
       echo "+++ Created GCS bucket: {{ bucket_name }}"
