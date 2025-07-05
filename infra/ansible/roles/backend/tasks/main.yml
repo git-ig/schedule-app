@@ -45,4 +45,18 @@
       - "8080:8080"
     env:
       NODE_ENV: production
+      # db connection vars
+      DB_HOST: "{{ database_private_ip }}"
+      DB_PORT: "5432"
+      DB_NAME: "{{ vault_database_name }}"
+      DB_USER: "{{ vault_database_user }}"
+      DB_PASSWORD: "{{ vault_database_password }}"
+      # Redis vars
+      REDIS_HOST: "{{ database_private_ip }}"
+      REDIS_PORT: "6379"
+      # Hibernate config
+      HIBERNATE_SHOW_SQL: "false"
+    depends_on:
+      - postgres
+      - redis
   become: true

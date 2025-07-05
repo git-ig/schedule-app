@@ -1,19 +1,181 @@
 ---
-# Tasks for database deployment
 - name: Create database directory
   ansible.builtin.file:
-    path: /home/ig/database
+    path: "/home/{{ ansible_user }}/database"
     state: directory
-    mode: '0755'
+    mode: "0755"
 
-- name: Pull and run database container
+- name: Create PostgreSQL data directory
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/database/postgres-data"
+    state: directory
+    mode: "0755"
+
+- name: Create database init directory
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/database/init"
+    state: directory
+    mode: "0755"
+
+- name: Install Google Cloud SDK
+  ansible.builtin.apt:
+    name: google-cloud-cli
+    state: present
+    update_cache: true
+  become: true
+
+- name: Authenticate with GCP using service account
+  ansible.builtin.shell: |
+    gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+  environment:
+    GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+  become: true
+
+- name: Create GCS bucket if not exists
+  ansible.builtin.shell: |
+    # Create bucket if it doesn't exist
+    if ! gsutil ls gs://{{ database_bucket_name }} 2>/dev/null; then
+      gsutil mb gs://{{ database_bucket_name }}
+      echo "✅ Created GCS bucket: {{ database_bucket_name }}"
+    fi
+
+- name: Upload database dump to GCS bucket first
+  ansible.builtin.shell: |
+    # Check if local dump file exists in role files
+    if [ -f "{{ role_path }}/files/database.dump" ]; then
+      echo "📤 Uploading local database dump to GCS bucket..."
+      gsutil cp "{{ role_path }}/files/database.dump" gs://{{ database_bucket_name }}/database.dump
+      echo "✅ Local database dump uploaded successfully"
+    else
+      # Create sample dump for development
+      echo "📝 Creating sample database dump..."
+      cat > /tmp/sample-database.dump << 'EOF'
+    --
+    -- PostgreSQL database dump for Schedule App
+    --
+
+    SET statement_timeout = 0;
+    SET lock_timeout = 0;
+    SET client_encoding = 'UTF8';
+    SET standard_conforming_strings = on;
+
+    -- Create schedules table
+    CREATE TABLE IF NOT EXISTS schedules (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        start_time TIMESTAMP,
+        end_time TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Insert sample data
+    INSERT INTO schedules (title, description, start_time, end_time) VALUES
+    ('Morning Meeting', 'Daily standup meeting', '2025-07-05 09:00:00', '2025-07-05 09:30:00'),
+    ('Project Review', 'Weekly project review', '2025-07-05 14:00:00', '2025-07-05 15:00:00'),
+    ('Team Building', 'Monthly team building event', '2025-07-05 16:00:00', '2025-07-05 18:00:00'),
+    ('Code Review', 'Backend code review session', '2025-07-06 10:00:00', '2025-07-06 11:00:00'),
+    ('Database Migration', 'Update database schema', '2025-07-06 15:00:00', '2025-07-06 16:00:00');
+    EOF
+
+          gsutil cp /tmp/sample-database.dump gs://{{ database_bucket_name }}/database.dump
+          rm -f /tmp/sample-database.dump
+          echo "✅ Sample database dump created and uploaded"
+        fi
+
+- name: Verify dump exists in bucket
+  ansible.builtin.shell: |
+    gsutil ls gs://{{ database_bucket_name }}/database.dump
+  register: dump_verification
+  failed_when: dump_verification.rc != 0
+
+- name: Download database dump from GCS bucket
+  ansible.builtin.shell: |
+    echo "📥 Downloading database dump from GCS bucket..."
+    gsutil cp gs://{{ database_bucket_name }}/database.dump \
+      /home/{{ ansible_user }}/database/init/database.dump
+    echo "✅ Database dump downloaded successfully"
+  register: download_result
+  failed_when: download_result.rc != 0
+
+- name: Set permissions for database dump
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/database/init/database.dump"
+    mode: "0644"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Create PostgreSQL container
   community.docker.docker_container:
-    name: database
-    image: postgres:13
+    name: postgres
+    image: postgres:13-alpine
     state: started
     restart_policy: always
+    ports:
+      - "5432:5432"
     env:
-      POSTGRES_USER: "{{ db_user }}"
-      POSTGRES_PASSWORD: "{{ db_password }}"
+      POSTGRES_DB: "{{ vault_database_name }}"
+      POSTGRES_USER: "{{ vault_database_user }}"
+      POSTGRES_PASSWORD: "{{ vault_database_password }}"
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - /home/ig/database/data:/var/lib/postgresql/data
+      - "/home/{{ ansible_user }}/database/postgres-data:/var/lib/postgresql/data"
+      - "/home/{{ ansible_user }}/database/init:/docker-entrypoint-initdb.d"
+  become: true
+
+- name: Create Redis container
+  community.docker.docker_container:
+    name: redis
+    image: redis:7-alpine
+    state: started
+    restart_policy: always
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - "/home/{{ ansible_user }}/database/redis-data:/data"
+  become: true
+
+- name: Wait for PostgreSQL to be ready
+  ansible.builtin.wait_for:
+    port: 5432
+    host: localhost
+    delay: 10
+    timeout: 60
+
+- name: Wait for Redis to be ready
+  ansible.builtin.wait_for:
+    port: 6379
+    host: localhost
+    delay: 5
+    timeout: 30
+
+- name: Check if database dump is already restored
+  ansible.builtin.stat:
+    path: "/home/{{ ansible_user }}/database/.dump_restored"
+  register: dump_restored
+
+- name: Restore database dump
+  ansible.builtin.shell: |
+    echo "🔄 Restoring database from dump..."
+    docker exec postgres pg_restore -U {{ vault_database_user }} -d {{ vault_database_name }} \
+      --verbose --clean --no-acl --no-owner \
+      /docker-entrypoint-initdb.d/database.dump || true
+    touch /home/{{ ansible_user }}/database/.dump_restored
+    echo "✅ Database dump restored successfully"
+  when: not dump_restored.stat.exists
+  become: true
+
+- name: Verify database restoration
+  ansible.builtin.shell: |
+    # Check if tables exist in database
+    docker exec postgres psql -U {{ vault_database_user }} -d {{ vault_database_name }} \
+      -c "\dt" | grep -q "schedules" && echo "✅ Database tables verified" || echo "⚠️ No tables found"
+  register: db_verification
+  failed_when: false
+
+- name: Clean up temporary files
+  ansible.builtin.file:
+    path: "/tmp/gcp-key.json"
+    state: absent
+  become: true

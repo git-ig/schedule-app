@@ -16,4 +16,14 @@ files/
 infra/ansible/.vault_pass
 infra/ansible/inventory/gcp.ini
 infra/terraform/gcp/backend.conf
-.terraform
+*.terraform
+
+*.dump
+*.sql
+/database
+dumps/
+backups/
+infra/ansible/roles/database/files/
+infra/ansible/roles/*/files/*.dump
+infra/ansible/roles/*/files/*.sql
+*.tmp

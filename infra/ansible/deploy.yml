@@ -6,20 +6,22 @@
   tags:
     - always
 
-- name: Deploy reverse proxy
-  hosts: bastion_group
+- name: Deploy database
+  hosts: database_group
   roles:
-    - reverse-proxy
-  vars:
-    frontend_private_ip: "{{ hostvars['frontend_host']['ansible_host'] }}"
-    backend_private_ip: "{{ hostvars['backend_host']['ansible_host'] }}"
-  tags: reverse-proxy
+    - database
+  vars_files:
+    - group_vars/database/vault.yml
+  tags: database
 
 - name: Deploy backend
   hosts: backend_group
   roles:
-    - common
     - backend
+  vars:
+    database_private_ip: "{{ hostvars['database_host']['ansible_host'] }}"
+  vars_files:
+    - group_vars/database/vault.yml
   tags: backend
 
 - name: Deploy frontend
@@ -28,13 +30,14 @@
     - frontend
   tags: frontend
 
-- name: Deploy database
-  hosts: database_group
+- name: Deploy reverse proxy
+  hosts: bastion_group
   roles:
-    - role: database
-  vars_files:
-    - group_vars/database/vault.yml
-  tags: database
+    - reverse-proxy
+  vars:
+    frontend_private_ip: "{{ hostvars['frontend_host']['ansible_host'] }}"
+    backend_private_ip: "{{ hostvars['backend_host']['ansible_host'] }}"
+  tags: reverse-proxy
 
 - name: Deploy monitoring
   hosts: monitoring_group

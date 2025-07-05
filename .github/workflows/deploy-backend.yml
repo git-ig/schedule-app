@@ -2,7 +2,7 @@ name: Deploy Backend
 
 on:
   workflow_run:
-    workflows: ["Build and Analyze "]
+    workflows: ["Build and Analyze"]
     types:
       - completed
     branches:
@@ -27,16 +27,11 @@ jobs:
           terraform_version: 1.5.0
           terraform_wrapper: false
 
-      - name: Set up Ansible
+      - name: Set up Ansible, Ansible Lint && jq
         run: |
           sudo apt-get update
-          sudo apt-get install -y ansible
-
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y ansible jq
-
-      - name: Install Ansible Lint
-        run: pip install ansible-lint
+          sudo apt-get install -y ansible jq
+          pip install ansible-lint
 
       - name: Configure Ansible Vault
         env:
@@ -187,26 +182,6 @@ jobs:
           cat ../../ansible/inventory/gcp.yml
           echo "---------------------------------"
           echo "backend_image=ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
-
-      - name: Debug directory structure
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Directory structure:"
-          find . -type d -name "*ansible*" -o -name "*inventory*" | head -20
-          echo "Full structure from root:"
-          ls -la
-
-      - name: Verify SSH Setup
-        run: |
-          echo "=== SSH Key Check ==="
-          ls -la ~/.ssh/
-          echo "=== SSH Config ==="
-          cat ~/.ssh/config || echo "No SSH config found"
-          echo "=== Testing SSH to Bastion ==="
-          cd infra/terraform/gcp
-          BASTION_IP=$(terraform output -raw bastion_public_ip)
-          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${{ secrets.GCP_SSH_USER }}@$BASTION_IP "echo 'Bastion connection successful'"
 
       - name: Run Backend Playbook
         working-directory: infra/ansible

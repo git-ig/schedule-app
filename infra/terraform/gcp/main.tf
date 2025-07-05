@@ -18,27 +18,39 @@ provider "google" {
 }
 
 module "network" {
-  source       = "./modules/network"
-  project_id   = var.project_id
-  region       = var.region
+  source     = "./modules/network"
+  project_id = var.project_id
+  region     = var.region
 }
 
 module "security" {
-  source = "./modules/security"
-  project_id = var.project_id
-  network_name = module.network.network_name
-  public_subnet_cidr = module.network.public_subnet_cidr
+  source              = "./modules/security"
+  project_id          = var.project_id
+  network_name        = module.network.network_name
+  public_subnet_cidr  = module.network.public_subnet_cidr
   private_subnet_cidr = module.network.private_subnet_cidr
 }
 
 module "compute" {
-  source                = "./modules/compute"
+  source                 = "./modules/compute"
+  project_id             = var.project_id
+  zone                   = var.zone
+  public_subnet_name     = module.network.public_subnet_name
+  private_subnet_name    = module.network.private_subnet_name
+  network_name           = module.network.network_name
+  vm_image               = var.vm_image
+  ssh_user               = var.ssh_user
+  ssh_public_key_content = var.ssh_public_key_content
+}
+
+module "storage" {
+  source                = "./modules/storage"
   project_id            = var.project_id
-  zone                  = var.zone
-  public_subnet_name    = module.network.public_subnet_name
-  private_subnet_name   = module.network.private_subnet_name
-  network_name          = module.network.network_name
-  vm_image              = var.vm_image
-  ssh_user              = var.ssh_user
-  ssh_public_key_content   = var.ssh_public_key_content
+  region                = var.region
+  service_account_email = var.service_account_email
+}
+
+output "database_bucket_name" {
+  description = "Name of the database dumps bucket"
+  value       = module.storage.database_bucket_name
 }

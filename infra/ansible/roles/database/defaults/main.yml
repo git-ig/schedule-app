@@ -1,0 +1,17 @@
+---
+database_name: "schedule_app"
+database_user: "postgres"
+database_password: "{{ vault_database_password }}"
+database_dump_path: "files/database.dump"
+
+# GCP Storage settings
+database_bucket_name: "{{ project_id }}-database-dumps"
+database_dump_filename: "database.dump"
+
+# PostgreSQL settings
+postgres_version: "13-alpine"
+postgres_port: 5432
+
+# Redis settings
+redis_version: "7-alpine"
+redis_port: 6379
