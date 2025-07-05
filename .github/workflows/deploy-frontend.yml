@@ -64,6 +64,22 @@ jobs:
           service_account_email    = "schedule-frontend@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
           EOF
 
+      - name: Debug Terraform Variables
+        run: |
+          echo "===  TERRAFORM VARIABLES DEBUG ==="
+          echo "Project ID from secret: ${{ secrets.GCP_PROJECT_ID }}"
+          echo "Expected SA email: schedule-frontend@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+          echo ""
+          echo " Generated terraform.tfvars content:"
+          cat infra/terraform/gcp/terraform.tfvars
+          echo ""
+          echo " Checking if service account exists:"
+          gcloud iam service-accounts describe schedule-frontend@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com || echo "❌ Service account not found!"
+          echo ""
+          echo " Checking variable in storage module:"
+          grep -n "service_account_email" infra/terraform/gcp/modules/storage/main.tf || echo "❌ Variable not found in storage module!"
+          echo "================================="
+
       - name: Configure Ansible Vault
         env:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
