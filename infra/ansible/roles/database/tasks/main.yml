@@ -204,12 +204,14 @@
 
 - name: Restore database dump
   ansible.builtin.shell: |
-    echo "🔄 Restoring database from dump..."
-    docker exec postgres pg_restore -U {{ vault_database_user }} -d {{ vault_database_name }} \
-      --verbose --clean --no-acl --no-owner \
-      /docker-entrypoint-initdb.d/database.dump || true
+    echo ">>> Restoring database from SQL dump..."
+
+    # Use psql for SQL script format
+    docker exec postgres psql -U {{ vault_database_user }} -d {{ vault_database_name }} \
+      -f /docker-entrypoint-initdb.d/database.dump
+
     touch /home/{{ ansible_user }}/database/.dump_restored
-    echo "✅ Database dump restored successfully"
+    echo "+++ Database dump restored successfully"
   when: not dump_restored.stat.exists
   become: true
   changed_when: true
