@@ -128,10 +128,15 @@
 
 - name: Download database dump from GCS bucket
   ansible.builtin.shell: |
+    # Authenticate and download in single context
+    gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+
     echo "📥 Downloading database dump from GCS bucket..."
     gcloud storage cp gs://{{ database_dump_bucket }}/database.dump \
       /home/{{ ansible_user }}/database/init/database.dump
     echo "✅ Database dump downloaded successfully"
+  environment:
+    GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
   register: download_result
   failed_when: download_result.rc != 0
   changed_when: "'downloaded successfully' in download_result.stdout"
