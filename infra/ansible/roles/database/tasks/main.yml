@@ -72,6 +72,14 @@
     update_cache: true
   become: true
 
+- name: Create GCP service account key file on remote host
+  ansible.builtin.copy:
+    content: "{{ lookup('env', 'GCP_SERVICE_ACCOUNT_KEY') }}"
+    dest: /tmp/gcp-key.json
+    mode: "0600"
+  become: true
+  no_log: true
+
 - name: Authenticate with GCP using service account
   ansible.builtin.shell: |
     gcloud auth activate-service-account --key-file=/tmp/gcp-key.json

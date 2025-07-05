@@ -161,11 +161,8 @@ jobs:
         working-directory: infra/ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: False
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
         run: |
-          # Create temporary GCP credentials file for Ansible
-          echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > /tmp/gcp-key.json
-
           ansible-galaxy collection install community.docker
 
           eval "$(ssh-agent -s)"
@@ -176,6 +173,3 @@ jobs:
             --extra-vars "database_bucket_name=${{ steps.terraform_outputs.outputs.database_bucket_name }}" \
             --extra-vars "project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -vv
-
-          # Clean up temporary credentials file
-          rm -f /tmp/gcp-key.json
