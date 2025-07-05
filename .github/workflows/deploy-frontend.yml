@@ -63,6 +63,7 @@ jobs:
           ssh_user                 = "${{ secrets.GCP_SSH_USER }}"
           ssh_public_key_content   = "$SSH_PUBLIC_KEY"
           bucket_name              = "${{ secrets.GCS_BUCKET_NAME }}"
+          service_account_email    = "schedule-frontend@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
           EOF
 
           echo "--- tfvars created ---"
