@@ -1,4 +1,4 @@
-FROM tomcat:9-jre11-temurin-alpine
+FROM tomcat:9.0-jre11-temurin-alpine
 
 RUN rm -rf /usr/local/tomcat/webapps/*
 
