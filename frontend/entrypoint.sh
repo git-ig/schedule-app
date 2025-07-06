@@ -7,11 +7,13 @@ case "$URL" in
   *)   BACKEND_URL="${URL}/" ;;
 esac
 
-echo "Replacing REACT_APP_API_BASE_URL_PLACEHOLDER with ${BACKEND_URL}"
+echo "Replacing __API_BASE_URL__ with ${BACKEND_URL}"
 
 find /usr/share/nginx/html -type f \( -name "*.js" -o -name "*.html" \) \
-  -exec sed -i "s|REACT_APP_API_BASE_URL_PLACEHOLDER|${BACKEND_URL}|g" {} +
+  -exec sed -i "s|__API_BASE_URL__|${BACKEND_URL}|g" {} +
 
 echo "Replacement completed"
+echo "Files processed:"
+find /usr/share/nginx/html -type f \( -name "*.js" -o -name "*.html" \) -exec echo "  {}" \;
 
 exec nginx -g "daemon off;"
