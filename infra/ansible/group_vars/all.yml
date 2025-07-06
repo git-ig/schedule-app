@@ -5,8 +5,8 @@ frontend_port: 80
 database_port: 5432
 redis_port: 6379
 
-# Dynamic URL (use inventory vars)
-backend_api_url: "http://{{ hostvars['backend_host']['ansible_host'] }}:{{ backend_port }}/"
+# Dynamic URL (use PUBLIC IP of reverse proxy)
+backend_api_url: "http://{{ hostvars['reverse_proxy_host']['ansible_public_ip'] | default(hostvars['reverse_proxy_host']['ansible_host']) }}/api/"
 database_url: "{{ hostvars['database_host']['ansible_host'] }}:{{ database_port }}"
 redis_url: "{{ hostvars['database_host']['ansible_host'] }}:{{ redis_port }}"
 
