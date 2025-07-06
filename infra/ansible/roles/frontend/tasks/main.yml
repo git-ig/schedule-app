@@ -39,5 +39,6 @@
     ports:
       - "80:80"
     env:
-      NODE_ENV: production
+      NODE_ENV: "{{ app_environment }}"
+      REACT_APP_API_BASE_URL: "{{ backend_api_url }}"
   become: true
