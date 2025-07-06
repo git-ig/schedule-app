@@ -1,43 +1,131 @@
+# /etc/nginx/sites-available/schedule-app
 server {
     listen 80;
-    server_name _;
+    listen 443 ssl http2;
+    server_name dock.ink www.dock.ink;
 
-    # logs
-    access_log /var/log/nginx/reverse-proxy.access.log;
-    error_log /var/log/nginx/reverse-proxy.error.log;
+    # SSL Configuration - ИСПРАВЛЕННЫЕ ПУТИ
+    ssl_certificate /etc/ssl/cloudflare/origin.pem;
+    ssl_certificate_key /etc/ssl/cloudflare/origin.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
 
-    # Proxing to frontend server
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Redirect HTTP to HTTPS
+    if ($scheme != "https") {
+        return 301 https://$host$request_uri;
+    }
+
+    # Frontend (React App)
     location / {
-        proxy_pass http://{{ frontend_private_ip }}:80;
+        proxy_pass http://10.0.2.31:80;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Timeouts
-        proxy_connect_timeout 30s;
-        proxy_send_timeout 30s;
-        proxy_read_timeout 30s;
+        proxy_set_header X-Forwarded-Host $host;
     }
 
-    # API proxing to backend
+    # Backend API - ОБЯЗАТЕЛЬНЫЙ TRAILING SLASH
     location /api/ {
-        proxy_pass http://{{ backend_private_ip }}:8080/;
+        proxy_pass http://10.0.2.33:8080/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
 
-        # Timeouts
-        proxy_connect_timeout 30s;
-        proxy_send_timeout 30s;
-        proxy_read_timeout 30s;
+        # CORS Headers для API
+        add_header Access-Control-Allow-Origin "https://dock.ink" always;
+        add_header Access-Control-Allow-Origin "https://www.dock.ink" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept" always;
+        add_header Access-Control-Allow-Credentials true always;
+
+        # Обработка preflight запросов
+        if ($request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin "https://dock.ink";
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept";
+            add_header Access-Control-Max-Age 1728000;
+            add_header Content-Type "text/plain charset=UTF-8";
+            add_header Content-Length 0;
+            return 204;
+        }
+    }
+}
+
+# API Subdomain
+server {
+    listen 80;
+    listen 443 ssl http2;
+    server_name api.dock.ink;
+
+    # SSL Configuration
+    ssl_certificate /etc/ssl/cloudflare/origin.pem;
+    ssl_certificate_key /etc/ssl/cloudflare/origin.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+
+    # Redirect HTTP to HTTPS
+    if ($scheme != "https") {
+        return 301 https://$host$request_uri;
     }
 
-    # Healthcheck
-    location /health {
-        access_log off;
-        return 200 "healthy\n";
-        add_header Content-Type text/plain;
+    # API Routes - WITHOUT /api/ prefix
+    location / {
+        proxy_pass http://10.0.2.33:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+
+        # CORS Headers
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept" always;
+    }
+}
+
+# Monitoring Subdomain
+server {
+    listen 80;
+    server_name monitoring.dock.ink grafana.dock.ink prometheus.dock.ink;
+
+    # inner IP pass
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    allow 192.168.0.0/16;
+    deny all;
+
+    # Grafana
+    location / {
+        proxy_pass http://10.0.2.32:3000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Prometheus
+    location /prometheus/ {
+        proxy_pass http://10.0.2.32:9090/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
