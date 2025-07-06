@@ -32,7 +32,7 @@ server {
         proxy_set_header X-Forwarded-Host $host;
     }
 
-    # Backend API - ОБЯЗАТЕЛЬНЫЙ TRAILING SLASH
+    # Backend API - TRAILING SLASH
     location /api/ {
         proxy_pass http://10.0.2.33:8080/;
         proxy_set_header Host $host;
