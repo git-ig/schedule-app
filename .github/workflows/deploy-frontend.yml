@@ -191,7 +191,7 @@ jobs:
                         ansible_host: $MONITORING_IP
           EOF
 
-          echo "frontend_image=ghcr.io/${{ github.repository }}-frontend:latest" >> $GITHUB_OUTPUT
+          echo "frontend_image=ghcr.io/${{ github.repository }}-frontend:${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
 
       - name: Run Frontend Playbook
         working-directory: infra/ansible
