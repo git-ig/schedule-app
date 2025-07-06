@@ -52,7 +52,8 @@
       DB_NAME: "{{ vault_database_name }}"
       DB_USER: "{{ vault_database_user }}"
       DB_PASSWORD: "{{ vault_database_password }}"
-      DATABASE_URL: "postgresql://{{ vault_database_user }}:{{ vault_database_password }}@{{ hostvars['database_host']['ansible_host'] }}:5432/{{ vault_database_name }}"
+      DATABASE_URL: >-
+        postgresql://{{ vault_database_user }}:{{ vault_database_password }}@{{ hostvars['database_host']['ansible_host'] }}:5432/{{ vault_database_name }}
       REDIS_URL: "redis://{{ hostvars['database_host']['ansible_host'] }}:6379"
       # Redis vars
       REDIS_HOST: "{{ hostvars['database_host']['ansible_host'] }}"
