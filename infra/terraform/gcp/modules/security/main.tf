@@ -34,17 +34,17 @@ resource "google_compute_firewall" "allow_http_to_bastion" {
   target_tags   = ["bastion"]
 }
 
-resource "google_compute_firewall" "allow_monitoring" {
-  name    = "allow-monitoring"
-  network = var.network_name
+# resource "google_compute_firewall" "allow_monitoring" {
+#   name    = "allow-monitoring"
+#   network = var.network_name
 
-  allow {
-    protocol = "tcp"
-    ports    = ["9090", "3000", "9100", "8081"]
-  }
+#   allow {
+#     protocol = "tcp"
+#     ports    = ["9090", "3000", "9100", "8081"]
+#   }
 
-  source_ranges = [
-    var.public_subnet_cidr,
-    var.private_subnet_cidr
-  ]
-}
+#   source_ranges = [
+#     var.public_subnet_cidr,
+#     var.private_subnet_cidr
+#   ]
+# }
