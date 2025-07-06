@@ -13,3 +13,8 @@ redis_url: "{{ hostvars['database_host']['ansible_host'] }}:{{ redis_port }}"
 # env config
 app_environment: production
 log_level: info
+
+# Monitoring configuration
+grafana_admin_password: "{{ vault_grafana_admin_password }}"
+ansible_user_uid: 1000
+ansible_user_gid: 1000

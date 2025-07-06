@@ -1,0 +1,56 @@
+name: Deploy Monitoring
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - "infra/ansible/roles/monitoring/**"
+      - "infra/ansible/roles/common/**"
+      - ".github/workflows/deploy-monitoring.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy-monitoring:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+          pip install ansible-lint
+
+      - name: Configure Ansible Vault
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: echo -n "$ANSIBLE_VAULT_PASSWORD" > infra/ansible/.vault_pass
+
+      - name: Authenticate to Google Cloud
+        uses: "google-github-actions/auth@v2"
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup SSH and Deploy Monitoring
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          GCP_SSH_USER: ${{ secrets.GCP_SSH_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          cd infra/ansible
+          ansible-playbook deploy.yml \
+            --tags monitoring \
+            --vault-password-file .vault_pass \
+            -i ./inventory/gcp.yml \
+            -vv

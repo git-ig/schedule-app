@@ -50,3 +50,41 @@
 
 - name: Reset SSH connection to allow user changes to affect ansible user
   ansible.builtin.meta: reset_connection
+
+- name: Install Node Exporter on all servers
+  community.docker.docker_container:
+    name: node-exporter
+    image: prom/node-exporter:v1.6.1
+    state: started
+    restart_policy: always
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.rootfs=/rootfs"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+  become: true
+
+- name: Install cAdvisor on all servers
+  community.docker.docker_container:
+    name: cadvisor
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    state: started
+    restart_policy: always
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+  become: true
