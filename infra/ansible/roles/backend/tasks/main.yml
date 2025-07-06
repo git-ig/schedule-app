@@ -44,18 +44,22 @@
     ports:
       - "8080:8080"
     env:
-      NODE_ENV: production
-      # db connection vars
-      DB_HOST: "{{ database_private_ip }}"
+      NODE_ENV:
+        production
+        # db connection vars
+      DB_HOST: "{{ hostvars['database_host']['ansible_host'] }}"
       DB_PORT: "5432"
       DB_NAME: "{{ vault_database_name }}"
       DB_USER: "{{ vault_database_user }}"
       DB_PASSWORD: "{{ vault_database_password }}"
+      DATABASE_URL: "postgresql://{{ vault_database_user }}:{{ vault_database_password }}@{{ hostvars['database_host']['ansible_host'] }}:5432/{{ vault_database_name }}"
+      REDIS_URL: "redis://{{ hostvars['database_host']['ansible_host'] }}:6379"
       # Redis vars
-      REDIS_HOST: "{{ database_private_ip }}"
+      REDIS_HOST: "{{ hostvars['database_host']['ansible_host'] }}"
       REDIS_PORT: "6379"
       # Hibernate config
       HIBERNATE_SHOW_SQL: "false"
+
     # depends_on:
     #   - postgres
     #   - redis
