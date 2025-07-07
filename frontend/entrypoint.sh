@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-URL="${REACT_APP_API_BASE_URL:-https://dock.ink/api/}"
+URL="${REACT_APP_API_BASE_URL:-https://dock.ink/}"
 case "$URL" in
   */) BACKEND_URL="$URL" ;;
   *)   BACKEND_URL="${URL}/" ;;
