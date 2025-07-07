@@ -105,7 +105,7 @@ resource "cloudflare_record" "grafana" {
   content         = module.compute.bastion_public_ip
   type            = "A"
   proxied         = false
-  allow_overwrite = true
+  allow_overwrite = false
 }
 
 resource "cloudflare_record" "prometheus" {
@@ -114,5 +114,5 @@ resource "cloudflare_record" "prometheus" {
   content         = module.compute.bastion_public_ip
   type            = "A"
   proxied         = false
-  allow_overwrite = true
+  allow_overwrite = false
 }
