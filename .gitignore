@@ -27,3 +27,4 @@ infra/ansible/roles/database/files/
 infra/ansible/roles/*/files/*.dump
 infra/ansible/roles/*/files/*.sql
 *.tmp
+debug-local.sh
