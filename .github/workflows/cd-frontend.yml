@@ -77,6 +77,8 @@ jobs:
           ssh_public_key_content   = "$SSH_PUBLIC_KEY"
           bucket_name              = "${{ secrets.GCS_BUCKET_NAME }}"
           service_account_email    = "schedule-frontend@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+          cloudflare_api_token     = "${{ secrets.CLOUDFLARE_API_TOKEN }}"
+          cloudflare_zone_id       = "${{ secrets.CLOUDFLARE_ZONE_ID }}"
           EOF
 
       - name: Debug Terraform Variables

@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 4.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
   backend "gcs" {
     bucket = var.bucket_name
@@ -62,6 +66,46 @@ provider "cloudflare" {
 resource "cloudflare_record" "monitoring" {
   zone_id = var.cloudflare_zone_id
   name    = "monitoring"
+  value   = module.compute.bastion_public_ip
+  type    = "A"
+  proxied = true
+}
+
+resource "cloudflare_record" "root" {
+  zone_id = var.cloudflare_zone_id
+  name    = "dock.ink"
+  value   = module.compute.bastion_public_ip
+  type    = "A"
+  proxied = true
+}
+
+resource "cloudflare_record" "www" {
+  zone_id = var.cloudflare_zone_id
+  name    = "www"
+  value   = module.compute.bastion_public_ip
+  type    = "A"
+  proxied = true
+}
+
+resource "cloudflare_record" "api" {
+  zone_id = var.cloudflare_zone_id
+  name    = "api"
+  value   = module.compute.bastion_public_ip
+  type    = "A"
+  proxied = true
+}
+
+resource "cloudflare_record" "grafana" {
+  zone_id = var.cloudflare_zone_id
+  name    = "grafana"
+  value   = module.compute.bastion_public_ip
+  type    = "A"
+  proxied = true
+}
+
+resource "cloudflare_record" "prometheus" {
+  zone_id = var.cloudflare_zone_id
+  name    = "prometheus"
   value   = module.compute.bastion_public_ip
   type    = "A"
   proxied = true
