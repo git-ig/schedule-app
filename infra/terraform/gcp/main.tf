@@ -54,3 +54,15 @@ output "database_bucket_name" {
   description = "Name of the database dumps bucket"
   value       = module.storage.database_bucket_name
 }
+
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
+}
+
+resource "cloudflare_record" "monitoring" {
+  zone_id = var.cloudflare_zone_id
+  name    = "monitoring"
+  value   = module.compute.bastion_public_ip
+  type    = "A"
+  proxied = true
+}

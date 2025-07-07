@@ -7,12 +7,9 @@ case "$URL" in
   *)   BACKEND_URL="${URL}/" ;;
 esac
 
-echo "Replacing __API_BASE_URL__ with ${BACKEND_URL}"
-
 find /usr/share/nginx/html -type f \( -name "*.js" -o -name "*.html" \) \
   -exec sed -i "s|__API_BASE_URL__|${BACKEND_URL}|g" {} +
 
-echo "Replacement completed"
 echo "Files processed:"
 find /usr/share/nginx/html -type f \( -name "*.js" -o -name "*.html" \) -exec echo "  {}" \;
 
