@@ -48,7 +48,7 @@ jobs:
 
       - name: Create .env file
         working-directory: ./frontend
-        run: echo "REACT_APP_API_BASE_URL=https://api.dock.ink/" > .env
+        run: echo "REACT_APP_API_BASE_URL=https://dock.ink/api/" > .env
 
       - name: Install Dependencies
         working-directory: ./frontend
