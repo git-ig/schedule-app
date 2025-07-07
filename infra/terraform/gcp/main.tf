@@ -64,49 +64,55 @@ provider "cloudflare" {
 }
 
 resource "cloudflare_record" "monitoring" {
-  zone_id = var.cloudflare_zone_id
-  name    = "monitoring"
-  value   = module.compute.bastion_public_ip
-  type    = "A"
-  proxied = true
+  zone_id         = var.cloudflare_zone_id
+  name            = "monitoring"
+  content         = module.compute.bastion_public_ip # Заменить value на content
+  type            = "A"
+  proxied         = true
+  allow_overwrite = true # Добавить эту строку
 }
 
 resource "cloudflare_record" "root" {
-  zone_id = var.cloudflare_zone_id
-  name    = "dock.ink"
-  value   = module.compute.bastion_public_ip
-  type    = "A"
-  proxied = true
+  zone_id         = var.cloudflare_zone_id
+  name            = "dock.ink"
+  content         = module.compute.bastion_public_ip
+  type            = "A"
+  proxied         = true
+  allow_overwrite = true
 }
 
 resource "cloudflare_record" "www" {
-  zone_id = var.cloudflare_zone_id
-  name    = "www"
-  value   = module.compute.bastion_public_ip
-  type    = "A"
-  proxied = true
+  zone_id         = var.cloudflare_zone_id
+  name            = "www"
+  content         = module.compute.bastion_public_ip
+  type            = "A"
+  proxied         = true
+  allow_overwrite = true
 }
 
 resource "cloudflare_record" "api" {
-  zone_id = var.cloudflare_zone_id
-  name    = "api"
-  value   = module.compute.bastion_public_ip
-  type    = "A"
-  proxied = true
+  zone_id         = var.cloudflare_zone_id
+  name            = "api"
+  content         = module.compute.bastion_public_ip
+  type            = "A"
+  proxied         = true
+  allow_overwrite = true
 }
 
 resource "cloudflare_record" "grafana" {
-  zone_id = var.cloudflare_zone_id
-  name    = "grafana"
-  value   = module.compute.bastion_public_ip
-  type    = "A"
-  proxied = true
+  zone_id         = var.cloudflare_zone_id
+  name            = "grafana"
+  content         = module.compute.bastion_public_ip
+  type            = "A"
+  proxied         = true
+  allow_overwrite = true
 }
 
 resource "cloudflare_record" "prometheus" {
-  zone_id = var.cloudflare_zone_id
-  name    = "prometheus"
-  value   = module.compute.bastion_public_ip
-  type    = "A"
-  proxied = true
+  zone_id         = var.cloudflare_zone_id
+  name            = "prometheus"
+  content         = module.compute.bastion_public_ip
+  type            = "A"
+  proxied         = true
+  allow_overwrite = true
 }
